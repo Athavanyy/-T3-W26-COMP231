@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CCMS.Api/CCMS.Api.csproj" />
+  <Project Path="CCMS.Tests/CCMS.Tests.csproj" />
+</Solution>
