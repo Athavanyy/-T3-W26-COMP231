@@ -1,13 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const testUsers = [
-  { id: 'student-001', name: 'Test Student', role: 'Student', isDisabled: false },
-  { id: 'exec-001', name: 'Test Executive', role: 'Club Executive', isDisabled: false },
-  { id: 'admin-001', name: 'Test Admin', role: 'Administrator', isDisabled: false },
-  { id: 'disabled-001', name: 'Disabled User', role: 'Student', isDisabled: true }
-];
-
 const menuItems = [
   { label: 'Dashboard', to: '/student/clubs' },
   { label: 'Clubs', to: '/student/clubs' },
@@ -26,7 +19,7 @@ export default function WireframePage({
   searchPlaceholder = 'Search',
   sidebar = true
 }) {
-  const { user, switchTestUser } = useAuth();
+  const { logout } = useAuth();
 
   return (
     <main className="app-shell">
@@ -49,25 +42,13 @@ export default function WireframePage({
               <nav>
                 {menuItems.map((item) => <Link key={item.label} to={item.to}>{item.label}</Link>)}
               </nav>
-              <span className="logout-box">Log out</span>
+              <button type="button" className="logout-box" onClick={logout}>Log out</button>
             </aside>
           )}
 
           <section className="screen-area">
             <div className="top-controls">
               <input className="search-box" placeholder={searchPlaceholder} />
-              <select
-                className="role-select"
-                value={user.id}
-                onChange={(event) => switchTestUser(testUsers.find((u) => u.id === event.target.value))}
-                title="Switch role for acceptance testing"
-              >
-                {testUsers.map((testUser) => (
-                  <option key={testUser.id} value={testUser.id}>
-                    {testUser.role}{testUser.isDisabled ? ' - Disabled' : ''}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <header className="screen-heading">

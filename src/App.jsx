@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import WireframePage from './components/WireframePage.jsx';
 import BrowseClubs from './pages/student/BrowseClubs.jsx';
 import ClubDetails from './pages/student/ClubDetails.jsx';
 import JoinConfirmation from './pages/student/JoinConfirmation.jsx';
@@ -21,11 +22,21 @@ function Unauthorized() {
   );
 }
 
+function Home() {
+  return (
+    <WireframePage title="Home" subtitle="Welcome to Campus Clubs">
+      <section className="page narrow">
+        <p>Use the role selector (top-right) to switch test users and navigate the app.</p>
+      </section>
+    </WireframePage>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Navigate to="/student/clubs" replace />} />
+        <Route index element={<Home />} />
         <Route path="unauthorized" element={<Unauthorized />} />
 
         {/* Caalvin task: RS-02 */}

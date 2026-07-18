@@ -23,9 +23,29 @@ async function request(path, options = {}) {
   return data;
 }
 
+function dedupeClubs(clubs) {
+  const seen = new Set();
+  return clubs.filter((club) => {
+    const key = club.id ?? club._id ?? club.name;
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 export const api = {
-  getClubs: () => request('/clubs'),
+  getClubs: async () => {
+    const data = await request('/clubs');
+    const clubs = Array.isArray(data) ? data : data?.clubs || [];
+    return dedupeClubs(clubs);
+  },
   getClubById: (clubId) => request(`/clubs/${clubId}`),
+  addClubMembers: (clubId, payload) => request(`/clubs/${clubId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
   getJoinConfirmation: (requestId) => request(`/join-requests/${requestId}/confirmation`),
   getEvents: () => request('/events'),
   getExecutiveDashboard: () => request('/executive/dashboard'),

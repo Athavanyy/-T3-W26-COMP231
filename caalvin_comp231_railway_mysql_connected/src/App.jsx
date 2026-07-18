@@ -12,6 +12,7 @@ import PublishEventValidation from './pages/executive/PublishEventValidation.jsx
 import PostAnnouncements from './pages/executive/PostAnnouncements.jsx';
 import UpdateUserRoleValidation from './pages/admin/UpdateUserRoleValidation.jsx';
 import ApproveClubValidation from './pages/admin/ApproveClubValidation.jsx';
+import LoginPage from './pages/LoginPage.jsx';
 
 function Unauthorized() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="login" element={<LoginPage />} />
         <Route path="unauthorized" element={<Unauthorized />} />
 
         {/* Caalvin task: RS-02 */}

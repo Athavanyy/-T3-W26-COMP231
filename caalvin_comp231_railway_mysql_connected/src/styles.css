@@ -121,7 +121,109 @@ a { color: inherit; text-decoration: none; }
 .logout-box {
   margin-top: auto;
   justify-content: center;
+  border: 0;
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.12);
+}
+
+.auth-page {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(980px, 100%);
+  padding: 32px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+}
+
+.auth-intro { margin-bottom: 24px; }
+.auth-intro h1 { margin: 0 0 10px; font-size: 2rem; }
+.auth-intro p { margin: 0; color: #475569; }
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid rgba(20, 33, 61, 0.12);
+  border-radius: 20px;
+  background: #f8fbff;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.auth-message {
+  margin: 0;
+  color: #1c588c;
+  font-weight: 600;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.auth-option {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(20, 33, 61, 0.12);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.auth-option-header { display: flex; gap: 8px; flex-wrap: wrap; }
+.role-pill,
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.role-pill { background: rgba(62, 146, 204, 0.14); color: #1c588c; }
+.status-pill.disabled { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
+
+.auth-option h2 { margin: 0; font-size: 1.1rem; }
+.auth-option p { margin: 0; color: #475569; }
+
+.auth-help { margin: 18px 0 8px; color: #64748b; }
+.text-link { color: #1c588c; font-weight: 700; }
+
+.wire-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1c588c, #3e92cc);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wire-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (max-width: 900px) {
+  .auth-grid { grid-template-columns: 1fr; }
 }
 
 .screen-area {

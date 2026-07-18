@@ -10,6 +10,9 @@ export default function ClubDetails() {
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [memberCount, setMemberCount] = useState(1);
+  const [submitStatus, setSubmitStatus] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadClub() {
@@ -25,6 +28,22 @@ export default function ClubDetails() {
     }
     loadClub();
   }, [clubId]);
+
+  async function handleAddMembers(event) {
+    event.preventDefault();
+    setSubmitStatus('');
+    setSubmitting(true);
+
+    try {
+      const result = await api.addClubMembers(clubId, { count: Number(memberCount) });
+      setSubmitStatus(`Added ${result.added} member(s). Total members now ${result.totalMembers}.`);
+      setClub((prev) => (prev ? { ...prev, members: result.totalMembers } : prev));
+    } catch (err) {
+      setSubmitStatus(err.message || 'Unable to add members.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <WireframePage
@@ -54,6 +73,22 @@ export default function ClubDetails() {
               <p>{club.members ?? 'N/A'} members</p>
               <p>Executive: club@ccms.edu</p>
             </div>
+            <form onSubmit={handleAddMembers} className="flow-row">
+              <label>
+                Add members:
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={memberCount}
+                  onChange={(event) => setMemberCount(Number(event.target.value))}
+                />
+              </label>
+              <button className="wire-button" type="submit" disabled={submitting}>
+                {submitting ? 'Adding...' : 'Add Members'}
+              </button>
+            </form>
+            {submitStatus && <StatusMessage type="success">{submitStatus}</StatusMessage>}
             <Link className="wire-button" to="/student/clubs">Back</Link>
           </article>
         </section>

@@ -36,6 +36,19 @@ function withMemberCount(row) {
   };
 }
 
+function dedupeClubs(rows) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const nameKey = row.name?.trim().toLowerCase() || row.club_name?.trim().toLowerCase();
+    const key = nameKey || row.id || row.club_id;
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 app.get('/api/health', async (_req, res, next) => {
   try {
     const info = await testDatabaseConnection();
@@ -56,7 +69,7 @@ app.get('/api/clubs', async (_req, res, next) => {
       GROUP BY c.club_id
       ORDER BY c.club_name
     `);
-    res.json(rows.map(withMemberCount));
+    res.json(dedupeClubs(rows).map(withMemberCount));
   } catch (error) { next(error); }
 });
 
@@ -71,8 +84,9 @@ app.get('/api/clubs/:clubId', async (req, res, next) => {
       WHERE c.club_id = ?
       GROUP BY c.club_id
     `, [req.params.clubId]);
-    if (!rows.length) return res.status(404).json({ message: 'Club not found.' });
-    res.json(withMemberCount(rows[0]));
+    const [club] = dedupeClubs(rows);
+    if (!club) return res.status(404).json({ message: 'Club not found.' });
+    res.json(withMemberCount(club));
   } catch (error) { next(error); }
 });
 
@@ -179,6 +193,52 @@ app.put('/api/admin/clubs/:clubId/approve', async (req, res, next) => {
     if (!result.affectedRows) return res.status(404).json({ message: 'Club not found.' });
     res.json({ message: 'Club approved successfully.', clubId: Number(req.params.clubId), status: 'ACTIVE' });
   } catch (error) { next(error); }
+});
+
+app.post('/api/clubs/:clubId/members', async (req, res, next) => {
+  try {
+    const clubId = Number(req.params.clubId);
+    const count = Number(req.body.count ?? 1);
+    if (!Number.isInteger(count) || count <= 0 || count > 50) {
+      return res.status(400).json({ message: 'Member count must be an integer between 1 and 50.' });
+    }
+
+    const [clubRows] = await pool.query('SELECT club_id FROM clubs WHERE club_id = ?', [clubId]);
+    if (!clubRows.length) {
+      return res.status(404).json({ message: 'Club not found.' });
+    }
+
+    const timestamp = Date.now();
+    const users = Array.from({ length: count }, (_, index) => [
+      `Student Member ${timestamp}-${index + 1}`,
+      `member${clubId}-${timestamp}-${index + 1}@college.edu`,
+      'password123',
+      'STUDENT',
+      'ACTIVE'
+    ]);
+
+    await pool.query('INSERT INTO users (full_name, email, password_hash, role, status) VALUES ?', [users]);
+
+    const [userRows] = await pool.query(
+      'SELECT user_id FROM users WHERE email LIKE ?',
+      [`member${clubId}-${timestamp}-%@college.edu`]
+    );
+
+    const membershipValues = userRows.map((row) => [row.user_id, clubId, 'ACTIVE']);
+    const [membershipResult] = await pool.query(
+      'INSERT INTO memberships (user_id, club_id, status) VALUES ?',
+      [membershipValues]
+    );
+
+    const [[{ count: totalMembers }]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM memberships WHERE club_id = ? AND status = ?',
+      [clubId, 'ACTIVE']
+    );
+
+    res.status(201).json({ message: 'Members added successfully.', added: membershipResult.affectedRows, totalMembers });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.use((error, _req, res, _next) => {

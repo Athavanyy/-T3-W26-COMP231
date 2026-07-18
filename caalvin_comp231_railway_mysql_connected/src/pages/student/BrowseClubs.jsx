@@ -5,6 +5,19 @@ import StatusMessage from '../../components/StatusMessage.jsx';
 import { api } from '../../services/api.js';
 import { mockClubs } from '../../services/mockApi.js';
 
+function dedupeClubs(items) {
+  const seen = new Set();
+  return items.filter((club) => {
+    const nameKey = club.name?.trim().toLowerCase();
+    const key = nameKey || club._id || club.id;
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function BrowseClubs() {
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,10 +27,11 @@ export default function BrowseClubs() {
     async function loadClubs() {
       try {
         const data = await api.getClubs();
-        setClubs(Array.isArray(data) ? data : data.clubs || []);
+        const normalized = Array.isArray(data) ? data : data?.clubs || [];
+        setClubs(dedupeClubs(normalized));
       } catch (err) {
         setError(`${err.message}. Showing prototype test data.`);
-        setClubs(mockClubs);
+        setClubs(dedupeClubs(mockClubs));
       } finally {
         setLoading(false);
       }

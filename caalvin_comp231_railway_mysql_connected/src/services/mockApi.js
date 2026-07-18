@@ -2,7 +2,7 @@ export const mockClubs = [
   { id: 'club-001', name: 'AI Club', category: 'Technology', description: 'Students building AI projects and sharing machine learning knowledge.', status: 'Pending Approval', members: 42 },
   { id: 'club-002', name: 'Cybersecurity Club', category: 'Security', description: 'Hands-on labs, CTF practice, and security workshops.', status: 'Approved', members: 35 },
   { id: 'club-003', name: 'Robotics Club', category: 'Engineering', description: 'Build and program robotics systems for campus competitions.', status: 'Approved', members: 28 },
-  { id: 'club-004', name: 'Photography Club', category: 'Arts', description: 'A club for students interested in photography, editing, and visual storytelling.', status: 'Approved', members: 19 }
+  { id: 'club-004', name: 'Photography Club', category: 'Arts', description: 'A club for students interested in photography, editing, and visual storytelling.', status: 'Approved', members: 20 }
 ];
 
 export const mockEvents = [
