@@ -7,20 +7,17 @@ const validate = require('../middleware/validation');
 const { clubValidation, eventValidation, announcementValidation } = require('../validators');
 
 router.use(authenticate);
-router.use(roleCheck('club_executive'));
+router.use(roleCheck('CLUB_EXECUTIVE')); // ✅ Uppercase matches schema
 
-// Club
 router.get('/club', clubExecutiveController.getMyClub);
-router.put('/club', validate(clubValidation.club), clubExecutiveController.updateClubProfile);
+router.put('/club', validate(clubValidation.update), clubExecutiveController.updateClubProfile);
 
-// Members
 router.get('/members', clubExecutiveController.getMembers);
 router.get('/members/requests', clubExecutiveController.getPendingRequests);
 router.put('/members/approve', clubExecutiveController.approveJoinRequest);
 router.put('/members/reject', clubExecutiveController.rejectJoinRequest);
 router.delete('/members/remove', clubExecutiveController.removeMember);
 
-// Events
 router.get('/events', clubExecutiveController.getMyEvents);
 router.post('/events', validate(eventValidation.event), clubExecutiveController.createEvent);
 router.put('/events/:eventId', validate(eventValidation.event), clubExecutiveController.updateEvent);
@@ -30,7 +27,6 @@ router.get('/events/:eventId/registrations', clubExecutiveController.getEventReg
 router.get('/registrations', clubExecutiveController.getAllEventRegistrations);
 router.get('/registrations/:eventId/export', clubExecutiveController.exportRegistrations);
 
-// Announcements
 router.get('/announcements', clubExecutiveController.getMyAnnouncements);
 router.post('/announcements', validate(announcementValidation.announcement), clubExecutiveController.createAnnouncement);
 router.put('/announcements/:announcementId/publish', clubExecutiveController.publishAnnouncement);

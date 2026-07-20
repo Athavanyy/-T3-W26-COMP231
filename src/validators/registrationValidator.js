@@ -6,7 +6,7 @@ const registrationValidation = {
   }),
 
   updateStatus: Joi.object({
-    status: Joi.string().valid('registered', 'cancelled', 'attended').required()
+    status: Joi.string().valid('REGISTERED', 'CANCELLED', 'ATTENDED').required()
   }),
 
   joinRequest: Joi.object({

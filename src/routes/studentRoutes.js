@@ -7,22 +7,18 @@ const validate = require('../middleware/validation');
 const { registrationValidation } = require('../validators');
 
 router.use(authenticate);
-router.use(roleCheck('student'));
+router.use(roleCheck('STUDENT')); // ✅ Uppercase matches schema
 
-// Clubs
 router.get('/clubs', studentController.browseClubs);
 router.get('/clubs/categories', studentController.getClubCategories);
 router.get('/clubs/:clubId', studentController.getClubDetails);
 
-// Membership
 router.post('/membership/join', validate(registrationValidation.joinRequest), studentController.submitJoinRequest);
 
-// Events
 router.get('/events', studentController.browseEvents);
 router.get('/events/:eventId', studentController.getEventDetails);
 router.post('/events/register', validate(registrationValidation.registration), studentController.registerForEvent);
 
-// Announcements
 router.get('/announcements', studentController.getAnnouncements);
 router.get('/announcements/:announcementId', studentController.getAnnouncementDetails);
 
