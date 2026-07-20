@@ -1,21 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-
-const testUsers = [
-  { id: 'student-001', name: 'Test Student', role: 'Student', isDisabled: false },
-  { id: 'exec-001', name: 'Test Executive', role: 'Club Executive', isDisabled: false },
-  { id: 'admin-001', name: 'Test Admin', role: 'Administrator', isDisabled: false },
-  { id: 'disabled-001', name: 'Disabled User', role: 'Student', isDisabled: true }
-];
-
-const menuItems = [
-  { label: 'Dashboard', to: '/student/clubs' },
-  { label: 'Clubs', to: '/student/clubs' },
-  { label: 'Events', to: '/student/events/select' },
-  { label: 'Executive', to: '/executive/dashboard' },
-  { label: 'Announcements', to: '/executive/announcements' },
-  { label: 'Admin', to: '/admin/users/test-user-001/role' }
-];
+import { mockTestUsers, mockMenuItems } from '../services/mockApi.js';
 
 export default function WireframePage({
   url = 'https://ccms.edu/dashboard',
@@ -47,7 +32,7 @@ export default function WireframePage({
                 </div>
               </div>
               <nav>
-                {menuItems.map((item) => <Link key={item.label} to={item.to}>{item.label}</Link>)}
+                {mockMenuItems.map((item) => <Link key={item.label} to={item.to}>{item.label}</Link>)}
               </nav>
               <span className="logout-box">Log out</span>
             </aside>
@@ -59,10 +44,10 @@ export default function WireframePage({
               <select
                 className="role-select"
                 value={user.id}
-                onChange={(event) => switchTestUser(testUsers.find((u) => u.id === event.target.value))}
+                onChange={(event) => switchTestUser(mockTestUsers.find((u) => u.id === event.target.value))}
                 title="Switch role for acceptance testing"
               >
-                {testUsers.map((testUser) => (
+                {mockTestUsers.map((testUser) => (
                   <option key={testUser.id} value={testUser.id}>
                     {testUser.role}{testUser.isDisabled ? ' - Disabled' : ''}
                   </option>

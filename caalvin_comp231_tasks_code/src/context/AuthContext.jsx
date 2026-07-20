@@ -1,19 +1,13 @@
 import { createContext, useContext, useMemo, useState } from 'react';
+import { mockDefaultUser } from '../services/mockApi.js';
 
 const AuthContext = createContext(null);
-
-const DEFAULT_USER = {
-  id: 'student-001',
-  name: 'Test Student',
-  role: 'Student',
-  isDisabled: false
-};
 
 export function AuthProvider({ children }) {
   // Replace this with your real login/session state if your project already has one.
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('ccms_user');
-    return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
+    return savedUser ? JSON.parse(savedUser) : mockDefaultUser;
   });
 
   function switchTestUser(nextUser) {

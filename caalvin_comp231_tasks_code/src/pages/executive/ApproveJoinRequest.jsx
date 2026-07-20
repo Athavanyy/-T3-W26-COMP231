@@ -1,15 +1,10 @@
 import { useState } from 'react';
 import WireframePage from '../../components/WireframePage.jsx';
 import StatusMessage from '../../components/StatusMessage.jsx';
-
-const initialRequests = [
-  { id: 'r1', student: 'Mia Chen', email: 'mia.chen@student.ccms.edu', club: 'Robotics Club', status: 'Pending', requestDate: '2026-07-10' },
-  { id: 'r2', student: 'Noah Singh', email: 'noah.singh@student.ccms.edu', club: 'Art Society', status: 'Pending', requestDate: '2026-07-11' },
-  { id: 'r3', student: 'Lina Gomez', email: 'lina.gomez@student.ccms.edu', club: 'Environmental Club', status: 'Pending', requestDate: '2026-07-12' }
-];
+import { mockJoinRequests } from '../../services/mockApi.js';
 
 export default function ApproveJoinRequest() {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState(mockJoinRequests);
   const [message, setMessage] = useState('');
 
   function handleApprove(id) {

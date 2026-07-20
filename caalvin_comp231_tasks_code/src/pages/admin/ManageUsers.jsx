@@ -1,10 +1,5 @@
 import WireframePage from '../../components/WireframePage.jsx';
-
-const users = [
-  { id: 'student-001', name: 'Jamie Carter', email: 'jamie.carter@student.ccms.edu', role: 'Student', status: 'Active' },
-  { id: 'exec-001', name: 'Priya Singh', email: 'priya.singh@club.ccms.edu', role: 'Club Executive', status: 'Active' },
-  { id: 'admin-001', name: 'Sofia Lee', email: 'sofia.lee@ccms.edu', role: 'Administrator', status: 'Active' }
-];
+import { mockManageUsers } from '../../services/mockApi.js';
 
 export default function ManageUsers() {
   return (
@@ -25,7 +20,7 @@ export default function ManageUsers() {
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
+          {mockManageUsers.map((user) => (
             <tr key={user.id}>
               <td>{user.name}</td>
               <td>{user.email}</td>
