@@ -1,30 +1,51 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import WireframePage from '../../components/WireframePage.jsx';
 import StatusMessage from '../../components/StatusMessage.jsx';
+import { api } from '../../services/api.js';
 import { mockJoinRequests } from '../../services/mockApi.js';
 
 export default function ApproveJoinRequest() {
-  const [requests, setRequests] = useState(mockJoinRequests);
+  const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState('');
 
-  function handleApprove(id) {
-    setRequests((current) => current.map((request) => (
-      request.id === id
-        ? { ...request, status: 'Approved' }
-        : request
-    )));
-    const approved = requests.find((request) => request.id === id);
-    setMessage(`Join request for ${approved?.student ?? 'student'} approved.`);
+  useEffect(() => {
+    async function loadRequests() {
+      try {
+        const data = await api.getJoinRequests();
+        setRequests(Array.isArray(data) ? data : data.requests || []);
+      } catch (err) {
+        setRequests(mockJoinRequests);
+        setMessage(err.message || 'Unable to load join requests.');
+      }
+    }
+
+    loadRequests();
+  }, []);
+
+  async function handleApprove(id) {
+    try {
+      await api.approveJoinRequest(id);
+      setRequests((current) => current.map((request) => (
+        request.id === id ? { ...request, status: 'Approved' } : request
+      )));
+      const approved = requests.find((request) => request.id === id);
+      setMessage(`Join request for ${approved?.student ?? 'student'} approved.`);
+    } catch (err) {
+      setMessage(err.message || 'Approval failed.');
+    }
   }
 
-  function handleReject(id) {
-    setRequests((current) => current.map((request) => (
-      request.id === id
-        ? { ...request, status: 'Rejected' }
-        : request
-    )));
-    const rejected = requests.find((request) => request.id === id);
-    setMessage(`Join request for ${rejected?.student ?? 'student'} rejected.`);
+  async function handleReject(id) {
+    try {
+      await api.rejectJoinRequest(id);
+      setRequests((current) => current.map((request) => (
+        request.id === id ? { ...request, status: 'Rejected' } : request
+      )));
+      const rejected = requests.find((request) => request.id === id);
+      setMessage(`Join request for ${rejected?.student ?? 'student'} rejected.`);
+    } catch (err) {
+      setMessage(err.message || 'Rejection failed.');
+    }
   }
 
   return (

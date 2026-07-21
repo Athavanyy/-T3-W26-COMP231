@@ -1,7 +1,24 @@
+import { useEffect, useState } from 'react';
 import WireframePage from '../../components/WireframePage.jsx';
+import { api } from '../../services/api.js';
 import { mockManageUsers } from '../../services/mockApi.js';
 
 export default function ManageUsers() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const data = await api.getUsers();
+        setUsers(Array.isArray(data) ? data : data.users || []);
+      } catch (err) {
+        setUsers(mockManageUsers);
+      }
+    }
+
+    loadUsers();
+  }, []);
+
   return (
     <WireframePage
       url="https://ccms.edu/admin/users/manage"
@@ -20,7 +37,7 @@ export default function ManageUsers() {
           </tr>
         </thead>
         <tbody>
-          {mockManageUsers.map((user) => (
+          {users.map((user) => (
             <tr key={user.id}>
               <td>{user.name}</td>
               <td>{user.email}</td>
