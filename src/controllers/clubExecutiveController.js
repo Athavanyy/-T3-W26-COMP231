@@ -8,7 +8,7 @@ class ClubExecutiveController {
   //CLUB MANAGEMENT
   async getMyClub(req, res) {
     try {
-      const club = await ClubService.getMyClub(req.user.user_id); // ✅ Use user_id
+      const club = await ClubService.getMyClub(req.user.user_id); // 
       res.status(200).json({ success: true, data: club });
     } catch (error) {
       res.status(404).json({ success: false, message: error.message });

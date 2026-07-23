@@ -67,7 +67,7 @@ async function testEndpoints() {
     const execClub = await axios.get(`${BASE_URL}/executive/club`, {
       headers: { Authorization: `Bearer ${execToken}` }
     });
-    console.log(`GET /executive/club: ${execClub.data.data.club_name}`);
+    const execClubs = Array.isArray(execClub.data.data) ? execClub.data.data : [execClub.data.data]; console.log(`GET /executive/club: ${execClubs.map((c) => c.club_name).join(', ')}`);
 
     const execMembers = await axios.get(`${BASE_URL}/executive/members`, {
       headers: { Authorization: `Bearer ${execToken}` }
