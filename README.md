@@ -2,8 +2,8 @@
 
 This project keeps Steven's Node/Express/MySQL backend and adds a complete browser frontend served by the same Express server.
 
-**##This is the link to are project **
-https://comp-231-campus-club-rho.vercel.app/ 
+This is the link to our project:
+https://comp-231-campus-club-rho.vercel.app/
 
 ## What is included
 
