@@ -173,6 +173,7 @@ function render() {
           <h1>Campus Club Management System</h1>
         </div>
         <div class="user-pill">
+          <button class="theme-toggle" id="themeToggle" title="Toggle theme">${getTheme() === "dark" ? "☀️" : "🌙"}</button>
           ${
             state.user
               ? `
@@ -191,6 +192,10 @@ function render() {
     </div>
     <div id="modal-root"></div>
   `;
+
+  // Bind theme toggle
+  document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
+
   bindGlobalEvents();
   if (state.user) bindDashboardEvents();
   else bindLoginEvents();
@@ -535,6 +540,32 @@ function renderTable(rows, title = "") {
     </div>
   `;
 }
+
+// ===== THEME MANAGEMENT =====
+function getTheme() {
+  return localStorage.getItem("ccms_theme") || "light";
+}
+
+function setTheme(theme) {
+  localStorage.setItem("ccms_theme", theme);
+  document.documentElement.setAttribute("data-theme", theme);
+  const toggle = document.getElementById("themeToggle");
+  if (toggle) {
+    toggle.textContent = theme === "dark" ? "☀️" : "🌙";
+  }
+}
+
+function toggleTheme() {
+  const current = getTheme();
+  const next = current === "dark" ? "light" : "dark";
+  setTheme(next);
+}
+
+// Apply theme on load
+document.addEventListener("DOMContentLoaded", () => {
+  const theme = getTheme();
+  setTheme(theme);
+});
 
 async function loadStudentClubs(root, filters = {}) {
   let categories = [];
