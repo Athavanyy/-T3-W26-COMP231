@@ -1,6 +1,8 @@
 const db = require('../config/database');
 const jwt = require('jsonwebtoken');
 
+const AdminService = require('./adminService');
+
 class AuthService {
   static async register(userData) {
     const { email, password, fullName, studentId, role } = userData;
@@ -25,6 +27,7 @@ class AuthService {
   static async login(email, password, ipAddress) {
     const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
     if (rows.length === 0) {
+      await AdminService.logActivity(null, 'LOGIN_FAILED', { email }, 'failure', ipAddress);
       throw new Error('Invalid credentials');
     }
 
@@ -34,6 +37,7 @@ class AuthService {
     }
 
     if (password !== user.password_hash) {
+      await AdminService.logActivity(null, 'LOGIN_FAILED', { email }, 'failure', ipAddress);
       throw new Error('Invalid credentials');
     }
 
@@ -42,6 +46,8 @@ class AuthService {
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
+
+    await AdminService.logActivity(user.user_id, 'LOGIN_SUCCESS', { email: user.email }, 'success', ipAddress);
 
     const { password_hash, ...userWithoutPassword } = user;
     return { token, user: userWithoutPassword };

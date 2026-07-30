@@ -1,5 +1,7 @@
 const db = require('../config/database');
 
+const AdminService = require('./adminService');
+
 class EventService {
   static async browseEvents(filters = {}) {
     let sql = `
@@ -65,6 +67,19 @@ class EventService {
     );
 
     const [rows] = await db.query('SELECT * FROM events WHERE event_id = LAST_INSERT_ID()');
+
+    await AdminService.logActivity(
+      executiveId,
+      'EVENT_CREATED',
+      {
+        eventId: rows[0].event_id,
+        title: rows[0].title,
+        clubId: club[0].club_id,
+        clubName: club[0].club_name
+      },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -94,6 +109,18 @@ class EventService {
     );
 
     const [rows] = await db.query('SELECT * FROM events WHERE event_id = ?', [eventId]);
+
+    await AdminService.logActivity(
+      executiveId,
+      'EVENT_UPDATED',
+      {
+        eventId: eventId,
+        title: event[0].title,
+        clubId: event[0].club_id
+      },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -112,7 +139,20 @@ class EventService {
     }
 
     await db.query('UPDATE events SET status = "PUBLISHED" WHERE event_id = ?', [eventId]);
+
     const [rows] = await db.query('SELECT * FROM events WHERE event_id = ?', [eventId]);
+
+    await AdminService.logActivity(
+      executiveId,
+      'EVENT_PUBLISHED',
+      {
+        eventId: rows[0].event_id,
+        title: rows[0].title,
+        clubId: rows[0].club_id
+      },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -127,6 +167,19 @@ class EventService {
     if (event.length === 0) throw new Error('Event not found or unauthorized');
 
     await db.query('UPDATE events SET status = "CANCELLED" WHERE event_id = ?', [eventId]);
+
+    await AdminService.logActivity(
+      executiveId,
+      'EVENT_CANCELLED',
+      {
+        eventId: eventId,
+        title: event[0].title,
+        clubId: event[0].club_id
+      },
+      'success'
+    );
+
+
     return { message: 'Event cancelled successfully' };
   }
 
@@ -161,6 +214,18 @@ class EventService {
     const [rows] = await db.query(
       'SELECT * FROM event_registrations WHERE registration_id = LAST_INSERT_ID()'
     );
+
+    await AdminService.logActivity(
+      studentId,
+      'EVENT_REGISTERATION',
+      {
+        eventId: eventId,
+        eventTitle: event[0].title,
+        clubId: event[0].club_id
+      },
+      'success'
+    );
+
     return rows[0];
   }
 

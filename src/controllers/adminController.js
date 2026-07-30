@@ -96,22 +96,31 @@ class AdminController {
   // Activities
   async getRecentActivities(req, res) {
     try {
-      const logs = await AdminService.getRecentActivities(req.query.limit);
-      res.status(200).json({ success: true, data: logs });
+      const { limit } = req.query;
+      const activities = await AdminService.getRecentActivities(limit || 100);
+      res.status(200).json({ success: true, data: activities });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  // ===== ACTIVITY LOGGING =====
 
   async getActivityLogs(req, res) {
     try {
-      const logs = await AdminService.getActivityLogs(req.query);
+      const { userId, action, status, startDate, endDate } = req.query;
+      const logs = await AdminService.getActivityLogs({
+        userId,
+        action,
+        status,
+        startDate,
+        endDate
+      });
       res.status(200).json({ success: true, data: logs });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
   }
-
   async getFailedActivities(req, res) {
     try {
       const logs = await AdminService.getFailedActivities();

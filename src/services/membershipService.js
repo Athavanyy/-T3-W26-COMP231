@@ -1,5 +1,7 @@
 const db = require('../config/database');
 
+const AdminService = require('./adminService');
+
 class MembershipService {
   static async submitJoinRequest(studentId, clubId) {
     const [club] = await db.query('SELECT * FROM clubs WHERE club_id = ? AND status = "ACTIVE"', [clubId]);
@@ -33,6 +35,14 @@ class MembershipService {
       'SELECT * FROM join_requests WHERE user_id = ? AND club_id = ? AND request_status = "PENDING"',
       [studentId, clubId]
     );
+
+    await AdminService.logActivity(
+      studentId,
+      'JOIN_REQUEST_SUBMITTED',
+      { clubId: clubId, clubName: club[0].club_name },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -80,7 +90,12 @@ class MembershipService {
       [request.user_id, request.club_id]
     );
 
-    const [rows] = await db.query('SELECT * FROM memberships WHERE user_id = ? AND club_id = ?', 
+    await AdminService.logActivity(executiveId, 'JOIN_REQUEST_APPROVED', {
+      userId: request.user_id,
+      clubId: request.club_id
+    });
+
+    const [rows] = await db.query('SELECT * FROM memberships WHERE user_id = ? AND club_id = ?',
       [request.user_id, request.club_id]);
     return rows[0];
   }
@@ -99,6 +114,12 @@ class MembershipService {
       'UPDATE join_requests SET request_status = "REJECTED" WHERE request_id = ?',
       [requestId]
     );
+
+    await AdminService.logActivity(executiveId, 'JOIN_REQUEST_REJECTED', {
+      userId: req[0].user_id,
+      clubId: req[0].club_id
+    });
+
     const [rows] = await db.query('SELECT * FROM join_requests WHERE request_id = ?', [requestId]);
     return rows[0];
   }
@@ -116,6 +137,13 @@ class MembershipService {
       'UPDATE memberships SET status = "INACTIVE" WHERE membership_id = ?',
       [membershipId]
     );
+
+    await AdminService.logActivity(executiveId, 'MEMBER_REMOVED', {
+      membershipId: membershipId,
+      userId: mem[0].user_id,
+      clubId: mem[0].club_id
+    });
+
     const [rows] = await db.query('SELECT * FROM memberships WHERE membership_id = ?', [membershipId]);
     return rows[0];
   }

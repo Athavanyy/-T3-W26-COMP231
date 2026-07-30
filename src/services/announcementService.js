@@ -1,5 +1,7 @@
 const db = require('../config/database');
 
+const AdminService = require('./adminService');
+
 class AnnouncementService {
   static async getAnnouncements(studentId) {
     const [rows] = await db.query(`
@@ -40,6 +42,14 @@ class AnnouncementService {
     );
 
     const [rows] = await db.query('SELECT * FROM announcements WHERE announcement_id = LAST_INSERT_ID()');
+
+    await AdminService.logActivity(
+      executiveId,
+      'ANNOUNCEMENT_CREATED',
+      { announcementId: rows[0].announcement_id, title: rows[0].title },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -59,6 +69,14 @@ class AnnouncementService {
       [announcementId]
     );
     const [rows] = await db.query('SELECT * FROM announcements WHERE announcement_id = ?', [announcementId]);
+
+    await AdminService.logActivity(
+      executiveId,
+      'ANNOUNCEMENT_PUBLISHED',
+      { announcementId: rows[0].announcement_id, title: rows[0].title },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -78,6 +96,14 @@ class AnnouncementService {
       [title, message, announcementId]
     );
     const [rows] = await db.query('SELECT * FROM announcements WHERE announcement_id = ?', [announcementId]);
+
+    await AdminService.logActivity(
+      executiveId,
+      'ANNOUNCEMENT_UPDATED',
+      { announcementId: rows[0].announcement_id, title: rows[0].title },
+      'success'
+    );
+
     return rows[0];
   }
 
@@ -105,6 +131,7 @@ class AnnouncementService {
 
   static async removeAnnouncement(adminId, announcementId) {
     await db.query('UPDATE announcements SET status = "REMOVED" WHERE announcement_id = ?', [announcementId]);
+    
     return { message: 'Announcement removed successfully' };
   }
 }

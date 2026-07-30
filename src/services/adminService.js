@@ -66,23 +66,60 @@ class AdminService {
   }
 
   //ACTIVITY MONITORING
+  // ===== ACTIVITY LOGGING =====
+
   static async getRecentActivities(limit = 100) {
     const [rows] = await db.query(`
-      (SELECT 'JOIN_REQUEST' as action_type, jr.request_date as activity_date, u.full_name
-       FROM join_requests jr
-       JOIN users u ON jr.user_id = u.user_id
-       LIMIT ?)
-      UNION ALL
-      (SELECT 'REGISTRATION' as action_type, er.registered_at as activity_date, u.full_name
-       FROM event_registrations er
-       JOIN users u ON er.user_id = u.user_id
-       LIMIT ?)
-    `, [Math.ceil(limit/2), Math.ceil(limit/2)]);
+    SELECT al.*, u.full_name, u.email
+    FROM activity_logs al
+    LEFT JOIN users u ON al.user_id = u.user_id
+    ORDER BY al.created_at DESC
+    LIMIT ?
+  `, [parseInt(limit)]);
     return rows;
   }
 
   static async getActivityLogs(filters = {}) {
-    return await this.getRecentActivities(100);
+    let sql = `
+    SELECT al.*, u.full_name, u.email
+    FROM activity_logs al
+    LEFT JOIN users u ON al.user_id = u.user_id
+    WHERE 1=1
+  `;
+    const params = [];
+
+    if (filters.userId) {
+      sql += ' AND al.user_id = ?';
+      params.push(filters.userId);
+    }
+    if (filters.action) {
+      sql += ' AND al.action LIKE ?';
+      params.push(`%${filters.action}%`);
+    }
+    if (filters.status) {
+      sql += ' AND al.status = ?';
+      params.push(filters.status);
+    }
+    if (filters.startDate) {
+      sql += ' AND al.created_at >= ?';
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      sql += ' AND al.created_at <= ?';
+      params.push(filters.endDate);
+    }
+
+    sql += ' ORDER BY al.created_at DESC';
+
+    const [rows] = await db.query(sql, params);
+    return rows;
+  }
+
+  static async logActivity(userId, action, details = {}, status = 'success', ipAddress = null) {
+    await db.query(
+      'INSERT INTO activity_logs (user_id, action, details, status, ip_address) VALUES (?, ?, ?, ?, ?)',
+      [userId, action, JSON.stringify(details), status, ipAddress]
+    );
   }
 
   static async getFailedActivities() {
