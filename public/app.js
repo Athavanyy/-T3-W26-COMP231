@@ -1074,14 +1074,30 @@ async function loadExecutiveEvents(root) {
   root.querySelectorAll("[data-event-regs]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
-        showModal(
-          "Event Registrations",
-          (
-            await api(
-              `/executive/events/${btn.dataset.eventRegs}/registrations`,
-            )
-          ).data,
+        const eventId = btn.dataset.eventRegs;
+        const response = await api(
+          `/executive/events/${eventId}/registrations`
         );
+      
+        // Handle the data properly
+        let registrations = [];
+        if (Array.isArray(response.data)) {
+          registrations = response.data;
+        } else if (Array.isArray(response)) {
+          registrations = response;
+        } else {
+          registrations = [response.data || response];
+        }
+      
+        // Show modal with registration data and export button
+        if (registrations.length === 0 || (Array.isArray(registrations) && registrations.length === 0)) {
+          showModal("Event Registrations", { 
+            message: "No students have registered for this event yet.",
+            eventId: eventId
+          });
+        } else {
+          showModalWithExport("Event Registrations", registrations, eventId);
+        }
       } catch (error) {
         setMessage(error.message, "error");
       }
@@ -1660,6 +1676,108 @@ async function loadAdminAllData(root) {
         .join("")}
     </div>
   `;
+}
+
+// ===== MODAL WITH EXPORT BUTTON =====
+function showModalWithExport(title, data, eventId) {
+  const modalRoot = document.getElementById("modal-root");
+  
+  function renderTableWithExport(rows, eventId) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return `<p class="empty">No registrations found.</p>`;
+    }
+    
+    const keys = Array.from(
+      rows.reduce((set, row) => {
+        Object.keys(row || {}).forEach((key) => set.add(key));
+        return set;
+      }, new Set())
+    );
+    
+    return `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              ${keys.map((key) => `<th>${escapeHtml(key.replace(/_/g, ' ').toUpperCase())}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                ${keys.map((key) => `<td>${escapeHtml(fmt(row?.[key]))}</td>`).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-actions" style="margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end;">
+        <button class="success small" data-export-registrations="${eventId}">📥 Export CSV</button>
+      </div>
+    `;
+  }
+  
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" data-close-modal="1">
+      <div class="modal detail-modal">
+        <div class="modal-header">
+          <h2>${escapeHtml(title)}</h2>
+          <button class="secondary small" data-close-modal="1">✕ Close</button>
+        </div>
+        <div class="modal-body">
+          ${renderTableWithExport(data, eventId)}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Close button
+  modalRoot.querySelectorAll("[data-close-modal]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target.dataset.closeModal) modalRoot.innerHTML = "";
+    });
+  });
+  
+  // Close on backdrop click
+  modalRoot.querySelector(".modal-backdrop")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) modalRoot.innerHTML = "";
+  });
+  
+  // Export button
+  modalRoot.querySelector("[data-export-registrations]")?.addEventListener("click", async (e) => {
+    const eventId = e.target.dataset.exportRegistrations;
+    try {
+      // Create a temporary link to download the CSV
+      const response = await fetch(`${API_BASE}/executive/registrations/${eventId}/export`, {
+        headers: {
+          'Authorization': `Bearer ${state.token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Export failed');
+      }
+      
+      // Get the CSV data as text
+      const csv = await response.text();
+      
+      // Create a download link
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `registrations_event_${eventId}_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      setMessage('Registrations exported successfully!', 'success');
+    } catch (error) {
+      setMessage(error.message, 'error');
+    }
+  });
 }
 
 loadMe();
