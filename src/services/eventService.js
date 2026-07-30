@@ -197,12 +197,25 @@ class EventService {
   }
 
   static async exportRegistrations(executiveId, eventId) {
+  // First, get the event name
+    const [event] = await db.query(`
+      SELECT title FROM events WHERE event_id = ?
+    `, [eventId]);
+  
+    if (event.length === 0) {
+      throw new Error('Event not found');
+    }
+  
     const registrations = await this.getEventRegistrations(executiveId, eventId);
-    return registrations.map(r => ({
-      name: r.full_name,
-      email: r.email,
-      registeredAt: r.registered_at
-    }));
+  
+    return {
+      eventName: event[0].title,
+      registrations: registrations.map(r => ({
+        name: r.full_name,
+        email: r.email,
+        registeredAt: r.registered_at ? new Date(r.registered_at).toLocaleString() : ''
+      }))
+    };
   }
 }
 

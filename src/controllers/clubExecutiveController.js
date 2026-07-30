@@ -196,13 +196,36 @@ class ClubExecutiveController {
   async exportRegistrations(req, res) {
     try {
       const { eventId } = req.params;
-      const data = await EventService.exportRegistrations(
-        req.user.user_id,
-        eventId,
-      );
-      res.status(200).json({ success: true, data });
+      const data = await EventService.exportRegistrations(req.user.user_id, eventId);
+    
+      if (data.registrations.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No registrations found for this event'
+        });
+      }
+
+      // Generate CSV
+      let csv = `Event: ${data.eventName}\n\n`;
+      csv += `"Name","Email","Registered At"\n`;
+    
+      data.registrations.forEach(row => {
+        const values = [
+          `"${String(row.name || '').replace(/"/g, '""')}"`,
+          `"${String(row.email || '').replace(/"/g, '""')}"`,
+          `"${String(row.registeredAt || '').replace(/"/g, '""')}"`
+        ];
+        csv += values.join(',') + '\n';
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${data.eventName.replace(/[^a-zA-Z0-9]/g, '_')}_registrations_${new Date().toISOString().slice(0,10)}.csv"`);
+      res.status(200).send(csv);
     } catch (error) {
-      res.status(400).json({ success: false, message: error.message });
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
     }
   }
 
