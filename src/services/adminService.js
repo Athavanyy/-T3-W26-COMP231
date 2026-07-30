@@ -142,145 +142,61 @@ class AdminService {
     return await this.getUserById(userId);
   }
 
-  // ACTIVITY MONITORING
-  static baseActivitySql() {
-    return `
-      SELECT * FROM (
-        SELECT
-          'USER_CREATED' AS action_type,
-          u.created_at AS activity_date,
-          u.full_name AS actor_name,
-          u.email AS actor_email,
-          u.status AS status,
-          CONCAT('User account created with role ', u.role) AS details
-        FROM users u
+  //ACTIVITY MONITORING
+  // ===== ACTIVITY LOGGING =====
 
-        UNION ALL
-
-        SELECT
-          'CLUB_CREATED' AS action_type,
-          c.created_at AS activity_date,
-          c.club_name AS actor_name,
-          NULL AS actor_email,
-          c.status AS status,
-          CONCAT('Club category: ', COALESCE(c.category, 'N/A')) AS details
-        FROM clubs c
-
-        UNION ALL
-
-        SELECT
-          'JOIN_REQUEST' AS action_type,
-          jr.request_date AS activity_date,
-          u.full_name AS actor_name,
-          u.email AS actor_email,
-          jr.request_status AS status,
-          CONCAT('Join request for club: ', c.club_name) AS details
-        FROM join_requests jr
-        JOIN users u ON jr.user_id = u.user_id
-        JOIN clubs c ON jr.club_id = c.club_id
-
-        UNION ALL
-
-        SELECT
-          'MEMBERSHIP' AS action_type,
-          m.joined_at AS activity_date,
-          u.full_name AS actor_name,
-          u.email AS actor_email,
-          m.status AS status,
-          CONCAT('Membership for club: ', c.club_name) AS details
-        FROM memberships m
-        JOIN users u ON m.user_id = u.user_id
-        JOIN clubs c ON m.club_id = c.club_id
-
-        UNION ALL
-
-        SELECT
-          'EVENT_CREATED' AS action_type,
-          e.created_at AS activity_date,
-          c.club_name AS actor_name,
-          NULL AS actor_email,
-          e.status AS status,
-          CONCAT('Event: ', e.title, ' at ', e.location) AS details
-        FROM events e
-        JOIN clubs c ON e.club_id = c.club_id
-
-        UNION ALL
-
-        SELECT
-          'EVENT_REGISTRATION' AS action_type,
-          er.registered_at AS activity_date,
-          u.full_name AS actor_name,
-          u.email AS actor_email,
-          er.registration_status AS status,
-          CONCAT('Registration for event: ', e.title) AS details
-        FROM event_registrations er
-        JOIN users u ON er.user_id = u.user_id
-        JOIN events e ON er.event_id = e.event_id
-
-        UNION ALL
-
-        SELECT
-          'ANNOUNCEMENT' AS action_type,
-          a.created_at AS activity_date,
-          c.club_name AS actor_name,
-          NULL AS actor_email,
-          a.status AS status,
-          CONCAT('Announcement: ', a.title) AS details
-        FROM announcements a
-        JOIN clubs c ON a.club_id = c.club_id
-      ) activities
-      WHERE 1=1
-    `;
-  }
-
-  static async getRecentActivities(limit = 25) {
-    return await this.getActivityLogs({ limit });
+  static async getRecentActivities(limit = 100) {
+    const [rows] = await db.query(`
+    SELECT al.*, u.full_name, u.email
+    FROM activity_logs al
+    LEFT JOIN users u ON al.user_id = u.user_id
+    ORDER BY al.created_at DESC
+    LIMIT ?
+  `, [parseInt(limit)]);
+    return rows;
   }
 
   static async getActivityLogs(filters = {}) {
-    let sql = this.baseActivitySql();
+    let sql = `
+    SELECT al.*, u.full_name, u.email
+    FROM activity_logs al
+    LEFT JOIN users u ON al.user_id = u.user_id
+    WHERE 1=1
+  `;
     const params = [];
 
-    if (filters.actionType) {
-      sql += " AND action_type = ?";
-      params.push(filters.actionType);
+    if (filters.userId) {
+      sql += ' AND al.user_id = ?';
+      params.push(filters.userId);
     }
-
+    if (filters.action) {
+      sql += ' AND al.action LIKE ?';
+      params.push(`%${filters.action}%`);
+    }
     if (filters.status) {
-      sql += " AND status = ?";
+      sql += ' AND al.status = ?';
       params.push(filters.status);
     }
-
-    if (filters.issueOnly) {
-      sql +=
-        " AND UPPER(status) IN ('INACTIVE', 'DISABLED', 'REJECTED', 'CANCELLED', 'REMOVED')";
+    if (filters.startDate) {
+      sql += ' AND al.created_at >= ?';
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      sql += ' AND al.created_at <= ?';
+      params.push(filters.endDate);
     }
 
-    if (filters.dateFrom) {
-      sql += " AND activity_date >= ?";
-      params.push(filters.dateFrom);
-    }
-
-    if (filters.dateTo) {
-      sql += " AND activity_date <= DATE_ADD(?, INTERVAL 1 DAY)";
-      params.push(filters.dateTo);
-    }
-
-    if (filters.keyword) {
-      sql += " AND (actor_name LIKE ? OR actor_email LIKE ? OR details LIKE ?)";
-      params.push(
-        `%${filters.keyword}%`,
-        `%${filters.keyword}%`,
-        `%${filters.keyword}%`,
-      );
-    }
-
-    const limit = Math.min(Number(filters.limit) || 100, 200);
-    sql += " ORDER BY activity_date DESC LIMIT ?";
-    params.push(limit);
+    sql += ' ORDER BY al.created_at DESC';
 
     const [rows] = await db.query(sql, params);
     return rows;
+  }
+
+  static async logActivity(userId, action, details = {}, status = 'success', ipAddress = null) {
+    await db.query(
+      'INSERT INTO activity_logs (user_id, action, details, status, ip_address) VALUES (?, ?, ?, ?, ?)',
+      [userId, action, JSON.stringify(details), status, ipAddress]
+    );
   }
 
   static async getFailedActivities(filters = {}) {
