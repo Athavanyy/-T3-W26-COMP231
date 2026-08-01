@@ -1,6 +1,6 @@
-const AdminService = require('../services/adminService');
-const ClubService = require('../services/clubService');
-const AnnouncementService = require('../services/announcementService');
+const AdminService = require("../services/adminService");
+const ClubService = require("../services/clubService");
+const AnnouncementService = require("../services/announcementService");
 
 class AdminController {
   // Users
@@ -22,11 +22,29 @@ class AdminController {
       res.status(404).json({ success: false, message: error.message });
     }
   }
-
+  async addUser(req, res) {
+    try {
+      const user = await AdminService.addUser(
+        req.user.id || req.user.user_id,
+        req.body,
+      );
+      res.status(201).json({
+        success: true,
+        message: "User added successfully",
+        data: user,
+      });
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
   async updateUserRole(req, res) {
     try {
       const { userId } = req.params;
-      const user = await AdminService.updateUserRole(req.user.id, userId, req.body.role);
+      const user = await AdminService.updateUserRole(
+        req.user.id,
+        userId,
+        req.body.role,
+      );
       res.status(200).json({ success: true, data: user });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });
@@ -76,7 +94,11 @@ class AdminController {
   async updateClubStatus(req, res) {
     try {
       const { clubId } = req.params;
-      const club = await ClubService.updateClubStatus(req.user.id, clubId, req.body.status);
+      const club = await ClubService.updateClubStatus(
+        req.user.id,
+        clubId,
+        req.body.status,
+      );
       res.status(200).json({ success: true, data: club });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });
@@ -114,7 +136,7 @@ class AdminController {
 
   async getFailedActivities(req, res) {
     try {
-      const logs = await AdminService.getFailedActivities();
+      const logs = await AdminService.getFailedActivities(req.query);
       res.status(200).json({ success: true, data: logs });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
@@ -125,7 +147,10 @@ class AdminController {
   async generateReport(req, res) {
     try {
       const { reportType, ...filters } = req.query;
-      if (!reportType) return res.status(400).json({ success: false, message: 'Report type required' });
+      if (!reportType)
+        return res
+          .status(400)
+          .json({ success: false, message: "Report type required" });
       const data = await AdminService.generateReport(reportType, filters);
       res.status(200).json({ success: true, data });
     } catch (error) {
@@ -146,7 +171,10 @@ class AdminController {
   async removeAnnouncement(req, res) {
     try {
       const { announcementId } = req.params;
-      const result = await AnnouncementService.removeAnnouncement(req.user.id, announcementId);
+      const result = await AnnouncementService.removeAnnouncement(
+        req.user.id,
+        announcementId,
+      );
       res.status(200).json({ success: true, message: result.message });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });
@@ -161,7 +189,6 @@ class AdminController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
-
 }
 
 module.exports = new AdminController();

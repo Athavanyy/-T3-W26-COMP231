@@ -390,78 +390,99 @@ function renderCardList(items, renderItem, emptyMessage = "No records found.") {
 
 function showModal(title, data) {
   const modalRoot = document.getElementById("modal-root");
-  
+
   function formatValue(key, value) {
     if (value === null || value === undefined || value === "") return "—";
-    
+
     if (typeof value === "object") {
       return `<pre style="margin:0;font-size:0.8rem;background:#f8f9fa;padding:4px 8px;border-radius:4px;max-height:150px;overflow:auto;">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
     }
-    
-    if (key === "created_at" || key === "updated_at" || key === "joined_at" || 
-        key === "request_date" || key === "registered_at" || key === "published_at" || 
-        key === "left_at" || key === "assigned_at") {
+
+    if (
+      key === "created_at" ||
+      key === "updated_at" ||
+      key === "joined_at" ||
+      key === "request_date" ||
+      key === "registered_at" ||
+      key === "published_at" ||
+      key === "left_at" ||
+      key === "assigned_at"
+    ) {
       return new Date(value).toLocaleString();
     }
     if (key === "event_date") return new Date(value).toLocaleDateString();
     if (key === "event_time") return String(value).slice(0, 5);
-    
-    if (key === "status" || key === "request_status" || key === "registration_status") {
+
+    if (
+      key === "status" ||
+      key === "request_status" ||
+      key === "registration_status"
+    ) {
       return statusBadge(value);
     }
-    
+
     if (key === "role") {
-      const cls = value === "ADMIN" ? "green" : value === "CLUB_EXECUTIVE" ? "orange" : "gray";
+      const cls =
+        value === "ADMIN"
+          ? "green"
+          : value === "CLUB_EXECUTIVE"
+            ? "orange"
+            : "gray";
       return `<span class="badge ${cls}">${escapeHtml(value)}</span>`;
     }
-    
+
     return escapeHtml(String(value));
   }
-  
+
   // Helper: Render data
   function renderDetails(data) {
     // If data is an array, render as table
     if (Array.isArray(data)) {
-      if (data.length === 0) return `<p class="empty">No registrations found.</p>`;
+      if (data.length === 0)
+        return `<p class="empty">No registrations found.</p>`;
       return renderTable(data, "Registrations");
     }
-    
+
     // If data is an object with a 'data' property that's an array (common API pattern)
     if (data && data.data && Array.isArray(data.data)) {
-      if (data.data.length === 0) return `<p class="empty">No registrations found.</p>`;
+      if (data.data.length === 0)
+        return `<p class="empty">No registrations found.</p>`;
       return renderTable(data.data, "Registrations");
     }
-    
+
     // If data is a plain object, render as detail grid
     if (data && typeof data === "object") {
       const sensitive = ["password", "password_hash", "token", "ipAddress"];
       const entries = Object.entries(data)
         .filter(([key]) => !sensitive.includes(key))
         .filter(([key]) => !key.startsWith("_"));
-      
-      if (entries.length === 0) return `<p class="empty">No data to display</p>`;
-      
+
+      if (entries.length === 0)
+        return `<p class="empty">No data to display</p>`;
+
       return `<div class="detail-grid">
-        ${entries.map(([key, value]) => {
-          const label = key
-            .replace(/_/g, " ")
-            .replace(/([A-Z])/g, " $1")
-            .trim()
-            .toUpperCase();
-          return `
+        ${entries
+          .map(([key, value]) => {
+            const label = key
+              .replace(/_/g, " ")
+              .replace(/([A-Z])/g, " $1")
+              .trim()
+              .toUpperCase();
+            return `
             <div class="detail-row">
               <span class="detail-label">${escapeHtml(label)}</span>
               <span class="detail-value">${formatValue(key, value)}</span>
             </div>
           `;
-        }).join("")}
+          })
+          .join("")}
       </div>`;
     }
-    
+
     // Fallback
     return `<p class="empty">No details available</p>`;
   }
-  
+
   modalRoot.innerHTML = `
     <div class="modal-backdrop" data-close-modal="1">
       <div class="modal detail-modal">
@@ -475,14 +496,14 @@ function showModal(title, data) {
       </div>
     </div>
   `;
-  
+
   // Close button
   modalRoot.querySelectorAll("[data-close-modal]").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (e.target.dataset.closeModal) modalRoot.innerHTML = "";
     });
   });
-  
+
   // Close on backdrop click
   modalRoot.querySelector(".modal-backdrop")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) modalRoot.innerHTML = "";
@@ -1075,13 +1096,48 @@ async function loadExecutiveAnnouncements(root) {
 
 async function loadAdminUsers(root, filters = {}) {
   const users = (await api(`/admin/users${queryString(filters)}`)).data || [];
+
   root.innerHTML = `
-    <form id="admin-user-filter" class="form-grid three">
-      <div class="field"><label>Keyword</label><input name="keyword" value="${escapeHtml(filters.keyword || "")}" /></div>
-      <div class="field"><label>Role</label><select name="role"><option value="">All</option><option>STUDENT</option><option>CLUB_EXECUTIVE</option><option>ADMIN</option></select></div>
-      <div class="field"><label>Status</label><select name="status"><option value="">All</option><option>ACTIVE</option><option>INACTIVE</option></select></div>
-      <div class="field"><label>&nbsp;</label><button type="submit">Filter Users</button></div>
-    </form>
+    <section class="item">
+      <h3>Add User</h3>
+      <p class="help">RA-04: Administrator can create a new user account and assign a role.</p>
+      <form id="admin-add-user-form" class="form-grid">
+        <div class="field">
+          <label>Full Name</label>
+          <input name="fullName" required placeholder="Example Student" />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input name="email" type="email" required placeholder="example@college.ca" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input name="password" type="password" required minlength="8" value="password123" />
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <select name="role" required>
+            <option value="STUDENT">STUDENT</option>
+            <option value="CLUB_EXECUTIVE">CLUB_EXECUTIVE</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+        </div>
+        <div class="form-actions full">
+          <button type="submit">Add User</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="item">
+      <h3>Filter Users</h3>
+      <form id="admin-user-filter" class="form-grid three">
+        <div class="field"><label>Keyword</label><input name="keyword" value="${escapeHtml(filters.keyword || "")}" /></div>
+        <div class="field"><label>Role</label><select name="role"><option value="">All</option><option>STUDENT</option><option>CLUB_EXECUTIVE</option><option>ADMIN</option></select></div>
+        <div class="field"><label>Status</label><select name="status"><option value="">All</option><option>ACTIVE</option><option>INACTIVE</option><option>DISABLED</option></select></div>
+        <div class="field"><label>&nbsp;</label><button type="submit">Filter Users</button></div>
+      </form>
+    </section>
+
     ${
       users.length
         ? `
@@ -1113,51 +1169,91 @@ async function loadAdminUsers(root, filters = {}) {
         : '<div class="empty">No users found.</div>'
     }
   `;
+
+  const roleFilter = root.querySelector(
+    '#admin-user-filter select[name="role"]',
+  );
+  if (roleFilter) roleFilter.value = filters.role || "";
+
+  const statusFilter = root.querySelector(
+    '#admin-user-filter select[name="status"]',
+  );
+  if (statusFilter) statusFilter.value = filters.status || "";
+
   users.forEach((u) => {
     const select = root.querySelector(`[data-role-for="${u.user_id}"]`);
     if (select) select.value = u.role;
   });
+
+  document
+    .getElementById("admin-add-user-form")
+    ?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      try {
+        await api("/admin/users", {
+          method: "POST",
+          body: JSON.stringify(formData(e.currentTarget)),
+        });
+
+        setMessage("User added successfully.", "success");
+        await loadAdminUsers(root, filters);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    });
+
   document
     .getElementById("admin-user-filter")
     ?.addEventListener("submit", (e) => {
       e.preventDefault();
       loadAdminUsers(root, formData(e.currentTarget));
     });
+
   root.querySelectorAll("[data-update-role]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       const role = root.querySelector(
         `[data-role-for="${btn.dataset.updateRole}"]`,
       )?.value;
+
       try {
         await api(`/admin/users/${btn.dataset.updateRole}/role`, {
           method: "PUT",
           body: JSON.stringify({ role }),
         });
+
         setMessage("User role updated.", "success");
+        await loadAdminUsers(root, filters);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   root.querySelectorAll("[data-disable-user]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         await api(`/admin/users/${btn.dataset.disableUser}/disable`, {
           method: "PUT",
         });
+
         setMessage("User disabled.", "success");
+        await loadAdminUsers(root, filters);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   root.querySelectorAll("[data-enable-user]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         await api(`/admin/users/${btn.dataset.enableUser}/enable`, {
           method: "PUT",
         });
+
         setMessage("User enabled.", "success");
+        await loadAdminUsers(root, filters);
       } catch (error) {
         setMessage(error.message, "error");
       }
@@ -1302,59 +1398,151 @@ async function loadAdminActivities(root) {
     <div class="grid">
       <section class="item">
         <h3>Activity Monitoring</h3>
+        <p class="help">RA-12 to RA-15: Admin can monitor recent activities, review logs, and identify issue records.</p>
+
+        <form id="activity-filter-form" class="form-grid three">
+          <div class="field">
+            <label>Action Type</label>
+            <select name="actionType">
+              <option value="">All</option>
+              <option value="USER_CREATED">USER_CREATED</option>
+              <option value="CLUB_CREATED">CLUB_CREATED</option>
+              <option value="JOIN_REQUEST">JOIN_REQUEST</option>
+              <option value="MEMBERSHIP">MEMBERSHIP</option>
+              <option value="EVENT_CREATED">EVENT_CREATED</option>
+              <option value="EVENT_REGISTRATION">EVENT_REGISTRATION</option>
+              <option value="ANNOUNCEMENT">ANNOUNCEMENT</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Status</label>
+            <input name="status" placeholder="ACTIVE / REJECTED / CANCELLED" />
+          </div>
+
+          <div class="field">
+            <label>Keyword</label>
+            <input name="keyword" placeholder="Name, email, club, event" />
+          </div>
+
+          <div class="field">
+            <label>Date From</label>
+            <input name="dateFrom" type="date" />
+          </div>
+
+          <div class="field">
+            <label>Date To</label>
+            <input name="dateTo" type="date" />
+          </div>
+
+          <div class="field">
+            <label>Limit</label>
+            <input name="limit" type="number" min="1" max="200" value="100" />
+          </div>
+        </form>
+
         <div class="actions">
           <button data-load-activities="recent">Recent Activities</button>
           <button data-load-activities="logs" class="secondary">Activity Logs</button>
-          <button data-load-activities="failed" class="secondary">Failed Activities</button>
+          <button data-load-activities="failed" class="secondary">Issue / Failed Activities</button>
         </div>
+
         <div id="activities-output" class="footer-note"></div>
       </section>
+
       <section class="item">
         <h3>Generate Report</h3>
+        <p class="help">RA-16: Admin can select a report type and generate a system summary.</p>
+
         <form id="report-form" class="form-grid">
-          <div class="field full"><label>Report Type</label><select name="reportType"><option value="club_activity">Club Activity</option><option value="event_participation">Event Participation</option><option value="user_engagement">User Engagement</option><option value="membership_stats">Membership Stats</option></select></div>
-          <div class="field"><label>Status Filter</label><input name="status" placeholder="ACTIVE / PUBLISHED" /></div>
-          <div class="field"><label>Date From</label><input name="dateFrom" type="date" /></div>
-          <div class="field"><label>Date To</label><input name="dateTo" type="date" /></div>
-          <div class="form-actions full"><button type="submit">Generate</button></div>
+          <div class="field full">
+            <label>Report Type</label>
+            <select name="reportType">
+              <option value="club_activity">Club Activity</option>
+              <option value="event_participation">Event Participation</option>
+              <option value="user_engagement">User Engagement</option>
+              <option value="membership_stats">Membership Stats</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Status Filter</label>
+            <input name="status" placeholder="ACTIVE / PUBLISHED / STUDENT" />
+          </div>
+
+          <div class="field">
+            <label>Role Filter</label>
+            <select name="role">
+              <option value="">Any Role</option>
+              <option>STUDENT</option>
+              <option>CLUB_EXECUTIVE</option>
+              <option>ADMIN</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Date From</label>
+            <input name="dateFrom" type="date" />
+          </div>
+
+          <div class="field">
+            <label>Date To</label>
+            <input name="dateTo" type="date" />
+          </div>
+
+          <div class="form-actions full">
+            <button type="submit">Generate Report</button>
+          </div>
         </form>
+
         <div id="report-output" class="footer-note"></div>
       </section>
     </div>
   `;
+
   root.querySelectorAll("[data-load-activities]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       const type = btn.dataset.loadActivities;
+      const filters = formData(document.getElementById("activity-filter-form"));
+
       const path =
         type === "recent"
-          ? "/admin/activities/recent"
+          ? `/admin/activities/recent${queryString(filters)}`
           : type === "logs"
-            ? "/admin/activities/logs"
-            : "/admin/activities/failed";
+            ? `/admin/activities/logs${queryString(filters)}`
+            : `/admin/activities/failed${queryString(filters)}`;
+
       try {
-        document.getElementById("activities-output").innerHTML = renderTable(
-          (await api(path)).data || [],
-        );
+        const rows = (await api(path)).data || [];
+
+        document.getElementById("activities-output").innerHTML = rows.length
+          ? renderTable(rows)
+          : '<div class="empty">No matching activity records found.</div>';
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   document
     .getElementById("report-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const data = formData(e.currentTarget);
+
       try {
-        document.getElementById("report-output").innerHTML = renderTable(
-          (await api(`/admin/reports/generate${queryString(data)}`)).data || [],
-        );
+        const rows =
+          (await api(`/admin/reports/generate${queryString(data)}`)).data || [];
+
+        document.getElementById("report-output").innerHTML = rows.length
+          ? renderTable(rows)
+          : '<div class="empty">No report data found for the selected filters.</div>';
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
 }
-
 async function loadAdminAllData(root) {
   const data = (await api("/admin/all-data")).data || {};
   const entries = Object.entries(data);
