@@ -390,78 +390,99 @@ function renderCardList(items, renderItem, emptyMessage = "No records found.") {
 
 function showModal(title, data) {
   const modalRoot = document.getElementById("modal-root");
-  
+
   function formatValue(key, value) {
     if (value === null || value === undefined || value === "") return "—";
-    
+
     if (typeof value === "object") {
       return `<pre style="margin:0;font-size:0.8rem;background:#f8f9fa;padding:4px 8px;border-radius:4px;max-height:150px;overflow:auto;">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
     }
-    
-    if (key === "created_at" || key === "updated_at" || key === "joined_at" || 
-        key === "request_date" || key === "registered_at" || key === "published_at" || 
-        key === "left_at" || key === "assigned_at") {
+
+    if (
+      key === "created_at" ||
+      key === "updated_at" ||
+      key === "joined_at" ||
+      key === "request_date" ||
+      key === "registered_at" ||
+      key === "published_at" ||
+      key === "left_at" ||
+      key === "assigned_at"
+    ) {
       return new Date(value).toLocaleString();
     }
     if (key === "event_date") return new Date(value).toLocaleDateString();
     if (key === "event_time") return String(value).slice(0, 5);
-    
-    if (key === "status" || key === "request_status" || key === "registration_status") {
+
+    if (
+      key === "status" ||
+      key === "request_status" ||
+      key === "registration_status"
+    ) {
       return statusBadge(value);
     }
-    
+
     if (key === "role") {
-      const cls = value === "ADMIN" ? "green" : value === "CLUB_EXECUTIVE" ? "orange" : "gray";
+      const cls =
+        value === "ADMIN"
+          ? "green"
+          : value === "CLUB_EXECUTIVE"
+            ? "orange"
+            : "gray";
       return `<span class="badge ${cls}">${escapeHtml(value)}</span>`;
     }
-    
+
     return escapeHtml(String(value));
   }
-  
+
   // Helper: Render data
   function renderDetails(data) {
     // If data is an array, render as table
     if (Array.isArray(data)) {
-      if (data.length === 0) return `<p class="empty">No registrations found.</p>`;
+      if (data.length === 0)
+        return `<p class="empty">No registrations found.</p>`;
       return renderTable(data, "Registrations");
     }
-    
+
     // If data is an object with a 'data' property that's an array (common API pattern)
     if (data && data.data && Array.isArray(data.data)) {
-      if (data.data.length === 0) return `<p class="empty">No registrations found.</p>`;
+      if (data.data.length === 0)
+        return `<p class="empty">No registrations found.</p>`;
       return renderTable(data.data, "Registrations");
     }
-    
+
     // If data is a plain object, render as detail grid
     if (data && typeof data === "object") {
       const sensitive = ["password", "password_hash", "token", "ipAddress"];
       const entries = Object.entries(data)
         .filter(([key]) => !sensitive.includes(key))
         .filter(([key]) => !key.startsWith("_"));
-      
-      if (entries.length === 0) return `<p class="empty">No data to display</p>`;
-      
+
+      if (entries.length === 0)
+        return `<p class="empty">No data to display</p>`;
+
       return `<div class="detail-grid">
-        ${entries.map(([key, value]) => {
-          const label = key
-            .replace(/_/g, " ")
-            .replace(/([A-Z])/g, " $1")
-            .trim()
-            .toUpperCase();
-          return `
+        ${entries
+          .map(([key, value]) => {
+            const label = key
+              .replace(/_/g, " ")
+              .replace(/([A-Z])/g, " $1")
+              .trim()
+              .toUpperCase();
+            return `
             <div class="detail-row">
               <span class="detail-label">${escapeHtml(label)}</span>
               <span class="detail-value">${formatValue(key, value)}</span>
             </div>
           `;
-        }).join("")}
+          })
+          .join("")}
       </div>`;
     }
-    
+
     // Fallback
     return `<p class="empty">No details available</p>`;
   }
-  
+
   modalRoot.innerHTML = `
     <div class="modal-backdrop" data-close-modal="1">
       <div class="modal detail-modal">
@@ -475,14 +496,14 @@ function showModal(title, data) {
       </div>
     </div>
   `;
-  
+
   // Close button
   modalRoot.querySelectorAll("[data-close-modal]").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (e.target.dataset.closeModal) modalRoot.innerHTML = "";
     });
   });
-  
+
   // Close on backdrop click
   modalRoot.querySelector(".modal-backdrop")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) modalRoot.innerHTML = "";
@@ -750,78 +771,151 @@ async function loadExecutiveMembers(root) {
     api("/executive/members"),
     api("/executive/members/requests"),
   ]);
+
   const members = membersRes.data || [];
   const requests = requestsRes.data || [];
+
   root.innerHTML = `
     <div class="grid">
       <section class="item">
         <h3>Active Members</h3>
-        ${members.length ? renderTable(members) : '<div class="empty">No active members.</div>'}
+        <p class="help">RCE-11: Club Executive can remove an active member from a club.</p>
+        ${
+          members.length
+            ? `
+          <div class="table-wrap"><table class="compact-table">
+            <thead>
+              <tr>
+                <th>Membership ID</th>
+                <th>Club</th>
+                <th>Student</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${members
+                .map(
+                  (m) => `
+                <tr>
+                  <td>${escapeHtml(m.membership_id)}</td>
+                  <td>${escapeHtml(m.club_name || "")}</td>
+                  <td>${escapeHtml(m.full_name || "")}</td>
+                  <td>${escapeHtml(m.email || "")}</td>
+                  <td>${statusBadge(m.status)}</td>
+                  <td>${escapeHtml(fmt(m.joined_at))}</td>
+                  <td>
+                    <button class="small danger" data-remove-member="${m.membership_id}">
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table></div>`
+            : '<div class="empty">No active members.</div>'
+        }
       </section>
+
       <section class="item">
         <h3>Pending Join Requests</h3>
         ${
           requests.length
             ? `
           <div class="table-wrap"><table class="compact-table">
-            <thead><tr><th>ID</th><th>Student</th><th>Email</th><th>Date</th><th>Action</th></tr></thead>
-            <tbody>${requests
-              .map(
-                (r) => `
+            <thead>
               <tr>
-                <td>${escapeHtml(r.request_id)}</td>
-                <td>${escapeHtml(r.full_name)}</td>
-                <td>${escapeHtml(r.email)}</td>
-                <td>${escapeHtml(fmt(r.request_date))}</td>
-                <td class="inline-controls">
-                  <button class="small success" data-approve-request="${r.request_id}">Approve</button>
-                  <button class="small danger" data-reject-request="${r.request_id}">Reject</button>
-                </td>
-              </tr>`,
-              )
-              .join("")}
+                <th>ID</th>
+                <th>Club</th>
+                <th>Student</th>
+                <th>Email</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${requests
+                .map(
+                  (r) => `
+                <tr>
+                  <td>${escapeHtml(r.request_id)}</td>
+                  <td>${escapeHtml(r.club_name || "")}</td>
+                  <td>${escapeHtml(r.full_name || "")}</td>
+                  <td>${escapeHtml(r.email || "")}</td>
+                  <td>${escapeHtml(fmt(r.request_date))}</td>
+                  <td class="inline-controls">
+                    <button class="small success" data-approve-request="${r.request_id}">Approve</button>
+                    <button class="small danger" data-reject-request="${r.request_id}">Reject</button>
+                  </td>
+                </tr>
+              `,
+                )
+                .join("")}
             </tbody>
           </table></div>`
             : '<div class="empty">No pending requests.</div>'
         }
       </section>
     </div>
-    <div class="footer-note">To remove a member, enter the Membership ID from the table.</div>
-    <form id="remove-member-form" class="form-grid three">
-      <div class="field"><label>Membership ID</label><input name="membershipId" type="number" required /></div>
-      <div class="field"><label>&nbsp;</label><button class="danger" type="submit">Remove Member</button></div>
-    </form>
   `;
-  root
-    .querySelectorAll("[data-approve-request]")
-    .forEach((btn) =>
-      btn.addEventListener("click", () =>
-        handleRequestAction("approve", btn.dataset.approveRequest),
-      ),
-    );
-  root
-    .querySelectorAll("[data-reject-request]")
-    .forEach((btn) =>
-      btn.addEventListener("click", () =>
-        handleRequestAction("reject", btn.dataset.rejectRequest),
-      ),
-    );
-  document
-    .getElementById("remove-member-form")
-    ?.addEventListener("submit", async (e) => {
-      e.preventDefault();
+
+  root.querySelectorAll("[data-approve-request]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      try {
+        await api("/executive/members/approve", {
+          method: "PUT",
+          body: JSON.stringify({
+            requestId: Number(btn.dataset.approveRequest),
+          }),
+        });
+        setMessage("Join request approved.", "success");
+        await loadExecutiveMembers(root);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    }),
+  );
+
+  root.querySelectorAll("[data-reject-request]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      try {
+        await api("/executive/members/reject", {
+          method: "PUT",
+          body: JSON.stringify({
+            requestId: Number(btn.dataset.rejectRequest),
+          }),
+        });
+        setMessage("Join request rejected.", "success");
+        await loadExecutiveMembers(root);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    }),
+  );
+
+  root.querySelectorAll("[data-remove-member]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const ok = confirm("Remove this member from the club?");
+      if (!ok) return;
+
       try {
         await api("/executive/members/remove", {
           method: "DELETE",
           body: JSON.stringify({
-            membershipId: Number(formData(e.currentTarget).membershipId),
+            membershipId: Number(btn.dataset.removeMember),
           }),
         });
         setMessage("Member removed.", "success");
+        await loadExecutiveMembers(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
-    });
+    }),
+  );
 }
 
 async function handleRequestAction(action, requestId) {
@@ -836,89 +930,187 @@ async function handleRequestAction(action, requestId) {
   }
 }
 
-function eventFormHtml(prefix, event = {}) {
+function eventFormHtml(prefix, event = {}, clubs = []) {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
   return `
     <form id="${prefix}-event-form" class="form-grid">
-      <div class="field"><label>Title</label><input name="title" value="${escapeHtml(event.title || "")}" required /></div>
-      <div class="field"><label>Location</label><input name="location" value="${escapeHtml(event.location || "")}" required /></div>
-      <div class="field"><label>Date</label><input name="eventDate" type="date" value="${escapeHtml(dateOnly(event.event_date) || tomorrow)}" required /></div>
-      <div class="field"><label>Time</label><input name="eventTime" type="time" value="${escapeHtml(timeOnly(event.event_time) || "12:00")}" required /></div>
-      <div class="field full"><label>Description</label><textarea name="description" required>${escapeHtml(event.description || "")}</textarea></div>
-      <div class="form-actions full"><button type="submit">${prefix === "create" ? "Create Draft Event" : "Update Event"}</button></div>
+      ${
+        prefix === "create"
+          ? `
+        <div class="field full">
+          <label>Club</label>
+          <select name="clubId" required>
+            ${clubs
+              .map(
+                (club) => `
+              <option value="${escapeHtml(club.club_id)}">
+                ${escapeHtml(club.club_name)}
+              </option>
+            `,
+              )
+              .join("")}
+          </select>
+        </div>`
+          : ""
+      }
+
+      <div class="field">
+        <label>Title</label>
+        <input name="title" value="${escapeHtml(event.title || "")}" required />
+      </div>
+
+      <div class="field">
+        <label>Location</label>
+        <input name="location" value="${escapeHtml(event.location || "")}" required />
+      </div>
+
+      <div class="field">
+        <label>Date</label>
+        <input name="eventDate" type="date" value="${escapeHtml(dateOnly(event.event_date) || tomorrow)}" required />
+      </div>
+
+      <div class="field">
+        <label>Time</label>
+        <input name="eventTime" type="time" value="${escapeHtml(timeOnly(event.event_time) || "12:00")}" required />
+      </div>
+
+      <div class="field full">
+        <label>Description</label>
+        <textarea name="description" required>${escapeHtml(event.description || "")}</textarea>
+      </div>
+
+      <div class="form-actions full">
+        <button type="submit">${prefix === "create" ? "Create Draft Event" : "Update Event"}</button>
+      </div>
     </form>
   `;
 }
 
 async function loadExecutiveEvents(root) {
-  const events = (await api("/executive/events")).data || [];
+  const [eventsRes, clubsRes] = await Promise.all([
+    api("/executive/events"),
+    api("/executive/club"),
+  ]);
+
+  const events = eventsRes.data || [];
+  const clubs = Array.isArray(clubsRes.data) ? clubsRes.data : [clubsRes.data];
   const selected = state.selectedEvent;
+
   root.innerHTML = `
     <div class="grid">
       <section class="item">
         <h3>Create Event</h3>
-        ${eventFormHtml("create")}
+        ${eventFormHtml("create", {}, clubs)}
       </section>
+
       <section class="item">
         <h3>Edit Selected Event</h3>
-        ${selected ? `<p class="help">Editing Event #${escapeHtml(selected.event_id)}: ${escapeHtml(selected.title)}</p>${eventFormHtml("edit", selected)}` : '<div class="empty">Click “Edit” on an event below.</div>'}
+        ${
+          selected
+            ? `<p class="help">Editing Event #${escapeHtml(selected.event_id)}: ${escapeHtml(selected.title)}</p>${eventFormHtml("edit", selected, clubs)}`
+            : '<div class="empty">Click Edit on an event below.</div>'
+        }
       </section>
     </div>
+
     <h3>My Club Events</h3>
     ${renderCardList(
       events,
       (event) => `
-      <article class="item">
-        <h3>${escapeHtml(event.title)}</h3>
-        <div class="meta">${statusBadge(event.status)} <span class="badge gray">ID: ${escapeHtml(event.event_id)}</span></div>
-        <p>${escapeHtml(event.description)}</p>
-        <p class="help"><strong>Date:</strong> ${escapeHtml(dateOnly(event.event_date))} ${escapeHtml(timeOnly(event.event_time))} | <strong>Location:</strong> ${escapeHtml(event.location)}</p>
-        <div class="actions">
-          <button class="small secondary" data-edit-event="${event.event_id}">Edit</button>
-          <button class="small success" data-publish-event="${event.event_id}">Publish</button>
-          <button class="small danger" data-delete-event="${event.event_id}">Cancel/Delete</button>
-          <button class="small" data-event-regs="${event.event_id}">View Registrations</button>
-        </div>
-      </article>
-    `,
+        <article class="item">
+          <h3>${escapeHtml(event.title)}</h3>
+          <div class="meta">
+            ${statusBadge(event.status)}
+            <span class="badge gray">ID: ${escapeHtml(event.event_id)}</span>
+            <span class="badge gray">${escapeHtml(event.club_name || "")}</span>
+            <span class="badge gray">Registrations: ${escapeHtml(event.participant_count || 0)}</span>
+          </div>
+          <p>${escapeHtml(event.description || "")}</p>
+          <p class="help">
+            <strong>Date:</strong> ${escapeHtml(dateOnly(event.event_date))}
+            ${escapeHtml(timeOnly(event.event_time))}
+            |
+            <strong>Location:</strong> ${escapeHtml(event.location || "")}
+          </p>
+          <div class="actions">
+            <button class="small secondary" data-edit-event="${event.event_id}">Edit</button>
+            <button class="small success" data-publish-event="${event.event_id}">Publish</button>
+            <button class="small danger" data-delete-event="${event.event_id}">Cancel/Delete</button>
+            <button class="small" data-event-regs="${event.event_id}">View Registered Students</button>
+          </div>
+        </article>
+      `,
       "No events created yet.",
     )}
+
     <section class="item">
-      <h3>Event Registration Summary</h3>
-      <button class="secondary small" data-load-registration-summary="1">Load Registration Summary</button>
-      <div id="registration-summary" class="footer-note"></div>
+      <h3>Event Registrations</h3>
+      <p class="help">RCE-22 to RCE-24: Select an event and view registered students.</p>
+
+      <form id="registration-select-form" class="form-grid three">
+        <div class="field">
+          <label>Select Event</label>
+          <select name="eventId" required>
+            ${events
+              .map(
+                (event) => `
+              <option value="${escapeHtml(event.event_id)}">
+                ${escapeHtml(event.title)} - ${escapeHtml(event.club_name || "")}
+              </option>
+            `,
+              )
+              .join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button type="submit">Load Registered Students</button>
+        </div>
+      </form>
+
+      <div id="event-registration-output" class="footer-note"></div>
     </section>
   `;
+
   document
     .getElementById("create-event-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
       try {
         await api("/executive/events", {
           method: "POST",
           body: JSON.stringify(formData(e.currentTarget)),
         });
+
         state.selectedEvent = null;
         setMessage("Draft event created.", "success");
+        await loadExecutiveEvents(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
+
   document
     .getElementById("edit-event-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
       try {
         await api(`/executive/events/${state.selectedEvent.event_id}`, {
           method: "PUT",
           body: JSON.stringify(formData(e.currentTarget)),
         });
+
         state.selectedEvent = null;
         setMessage("Event updated.", "success");
+        await loadExecutiveEvents(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
+
   root.querySelectorAll("[data-edit-event]").forEach((btn) =>
     btn.addEventListener("click", () => {
       state.selectedEvent = events.find(
@@ -927,129 +1119,209 @@ async function loadExecutiveEvents(root) {
       loadExecutiveEvents(root);
     }),
   );
+
   root.querySelectorAll("[data-publish-event]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         await api(`/executive/events/${btn.dataset.publishEvent}/publish`, {
           method: "PUT",
         });
+
         setMessage("Event published.", "success");
+        await loadExecutiveEvents(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   root.querySelectorAll("[data-delete-event]").forEach((btn) =>
     btn.addEventListener("click", async () => {
+      const ok = confirm("Cancel this event?");
+      if (!ok) return;
+
       try {
         await api(`/executive/events/${btn.dataset.deleteEvent}`, {
           method: "DELETE",
         });
+
         setMessage("Event cancelled.", "success");
+        await loadExecutiveEvents(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   root.querySelectorAll("[data-event-regs]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
-        showModal(
-          "Event Registrations",
+        const rows =
           (
             await api(
               `/executive/events/${btn.dataset.eventRegs}/registrations`,
             )
-          ).data,
-        );
+          ).data || [];
+
+        showModal("Registered Students", rows);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
-  root
-    .querySelector("[data-load-registration-summary]")
-    ?.addEventListener("click", async () => {
+
+  document
+    .getElementById("registration-select-form")
+    ?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const eventId = formData(e.currentTarget).eventId;
+
       try {
-        const summary = (await api("/executive/registrations")).data || [];
-        document.getElementById("registration-summary").innerHTML =
-          renderTable(summary);
+        const rows =
+          (await api(`/executive/events/${eventId}/registrations`)).data || [];
+
+        document.getElementById("event-registration-output").innerHTML =
+          rows.length
+            ? renderTable(rows)
+            : '<div class="empty">No students registered for this event.</div>';
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
 }
 
-function announcementFormHtml(prefix, ann = {}) {
+function announcementFormHtml(prefix, ann = {}, clubs = []) {
   return `
     <form id="${prefix}-announcement-form" class="form-grid">
-      <div class="field full"><label>Title</label><input name="title" value="${escapeHtml(ann.title || "")}" required /></div>
-      <div class="field full"><label>Message</label><textarea name="message" required>${escapeHtml(ann.message || "")}</textarea></div>
-      <div class="form-actions full"><button type="submit">${prefix === "create" ? "Create Draft Announcement" : "Update Announcement"}</button></div>
+      ${
+        prefix === "create"
+          ? `
+        <div class="field full">
+          <label>Club</label>
+          <select name="clubId" required>
+            ${clubs
+              .map(
+                (club) => `
+              <option value="${escapeHtml(club.club_id)}">
+                ${escapeHtml(club.club_name)}
+              </option>
+            `,
+              )
+              .join("")}
+          </select>
+        </div>`
+          : ""
+      }
+
+      <div class="field full">
+        <label>Title</label>
+        <input name="title" value="${escapeHtml(ann.title || "")}" required />
+      </div>
+
+      <div class="field full">
+        <label>Message</label>
+        <textarea name="message" required>${escapeHtml(ann.message || "")}</textarea>
+      </div>
+
+      <div class="form-actions full">
+        <button type="submit">${prefix === "create" ? "Create Draft Announcement" : "Update Announcement"}</button>
+      </div>
     </form>
   `;
 }
 
 async function loadExecutiveAnnouncements(root) {
-  const announcements = (await api("/executive/announcements")).data || [];
+  const [annRes, clubsRes] = await Promise.all([
+    api("/executive/announcements"),
+    api("/executive/club"),
+  ]);
+
+  const announcements = annRes.data || [];
+  const clubs = Array.isArray(clubsRes.data) ? clubsRes.data : [clubsRes.data];
   const selected = state.selectedAnnouncement;
+
   root.innerHTML = `
     <div class="grid">
       <section class="item">
         <h3>Create Announcement</h3>
-        ${announcementFormHtml("create")}
+        ${announcementFormHtml("create", {}, clubs)}
       </section>
+
       <section class="item">
         <h3>Edit Selected Announcement</h3>
-        ${selected ? `<p class="help">Editing Announcement #${escapeHtml(selected.announcement_id)}</p>${announcementFormHtml("edit", selected)}` : '<div class="empty">Click “Edit” on an announcement below.</div>'}
+        ${
+          selected
+            ? `<p class="help">Editing Announcement #${escapeHtml(selected.announcement_id)}</p>${announcementFormHtml("edit", selected, clubs)}`
+            : '<div class="empty">Click Edit on an announcement below.</div>'
+        }
       </section>
     </div>
+
     <h3>My Announcements</h3>
     ${renderCardList(
       announcements,
       (ann) => `
-      <article class="item">
-        <h3>${escapeHtml(ann.title)}</h3>
-        <div class="meta">${statusBadge(ann.status)} <span class="badge gray">ID: ${escapeHtml(ann.announcement_id)}</span></div>
-        <p>${escapeHtml(ann.message)}</p>
-        <div class="actions">
-          <button class="small secondary" data-edit-ann="${ann.announcement_id}">Edit</button>
-          <button class="small success" data-publish-ann="${ann.announcement_id}">Publish</button>
-        </div>
-      </article>
-    `,
+        <article class="item">
+          <h3>${escapeHtml(ann.title)}</h3>
+          <div class="meta">
+            ${statusBadge(ann.status)}
+            <span class="badge gray">ID: ${escapeHtml(ann.announcement_id)}</span>
+            <span class="badge gray">${escapeHtml(ann.club_name || "")}</span>
+          </div>
+          <p>${escapeHtml(ann.message || "")}</p>
+          <p class="help">Created: ${escapeHtml(fmt(ann.created_at))}</p>
+          <div class="actions">
+            <button class="small secondary" data-edit-ann="${ann.announcement_id}">Edit</button>
+            <button class="small success" data-publish-ann="${ann.announcement_id}">Publish</button>
+          </div>
+        </article>
+      `,
       "No announcements created yet.",
     )}
   `;
+
   document
     .getElementById("create-announcement-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
       try {
         await api("/executive/announcements", {
           method: "POST",
           body: JSON.stringify(formData(e.currentTarget)),
         });
+
+        state.selectedAnnouncement = null;
         setMessage("Draft announcement created.", "success");
+        await loadExecutiveAnnouncements(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
+
   document
     .getElementById("edit-announcement-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
       try {
         await api(
           `/executive/announcements/${state.selectedAnnouncement.announcement_id}`,
-          { method: "PUT", body: JSON.stringify(formData(e.currentTarget)) },
+          {
+            method: "PUT",
+            body: JSON.stringify(formData(e.currentTarget)),
+          },
         );
+
         state.selectedAnnouncement = null;
         setMessage("Announcement updated.", "success");
+        await loadExecutiveAnnouncements(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
+
   root.querySelectorAll("[data-edit-ann]").forEach((btn) =>
     btn.addEventListener("click", () => {
       state.selectedAnnouncement = announcements.find(
@@ -1058,14 +1330,19 @@ async function loadExecutiveAnnouncements(root) {
       loadExecutiveAnnouncements(root);
     }),
   );
+
   root.querySelectorAll("[data-publish-ann]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         await api(
           `/executive/announcements/${btn.dataset.publishAnn}/publish`,
-          { method: "PUT" },
+          {
+            method: "PUT",
+          },
         );
+
         setMessage("Announcement published.", "success");
+        await loadExecutiveAnnouncements(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
@@ -1075,13 +1352,48 @@ async function loadExecutiveAnnouncements(root) {
 
 async function loadAdminUsers(root, filters = {}) {
   const users = (await api(`/admin/users${queryString(filters)}`)).data || [];
+
   root.innerHTML = `
-    <form id="admin-user-filter" class="form-grid three">
-      <div class="field"><label>Keyword</label><input name="keyword" value="${escapeHtml(filters.keyword || "")}" /></div>
-      <div class="field"><label>Role</label><select name="role"><option value="">All</option><option>STUDENT</option><option>CLUB_EXECUTIVE</option><option>ADMIN</option></select></div>
-      <div class="field"><label>Status</label><select name="status"><option value="">All</option><option>ACTIVE</option><option>INACTIVE</option></select></div>
-      <div class="field"><label>&nbsp;</label><button type="submit">Filter Users</button></div>
-    </form>
+    <section class="item">
+      <h3>Add User</h3>
+      <p class="help">RA-04: Administrator can create a new user account and assign a role.</p>
+      <form id="admin-add-user-form" class="form-grid">
+        <div class="field">
+          <label>Full Name</label>
+          <input name="fullName" required placeholder="Example Student" />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input name="email" type="email" required placeholder="example@college.ca" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input name="password" type="password" required minlength="8" value="password123" />
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <select name="role" required>
+            <option value="STUDENT">STUDENT</option>
+            <option value="CLUB_EXECUTIVE">CLUB_EXECUTIVE</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+        </div>
+        <div class="form-actions full">
+          <button type="submit">Add User</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="item">
+      <h3>Filter Users</h3>
+      <form id="admin-user-filter" class="form-grid three">
+        <div class="field"><label>Keyword</label><input name="keyword" value="${escapeHtml(filters.keyword || "")}" /></div>
+        <div class="field"><label>Role</label><select name="role"><option value="">All</option><option>STUDENT</option><option>CLUB_EXECUTIVE</option><option>ADMIN</option></select></div>
+        <div class="field"><label>Status</label><select name="status"><option value="">All</option><option>ACTIVE</option><option>INACTIVE</option><option>DISABLED</option></select></div>
+        <div class="field"><label>&nbsp;</label><button type="submit">Filter Users</button></div>
+      </form>
+    </section>
+
     ${
       users.length
         ? `
@@ -1113,51 +1425,91 @@ async function loadAdminUsers(root, filters = {}) {
         : '<div class="empty">No users found.</div>'
     }
   `;
+
+  const roleFilter = root.querySelector(
+    '#admin-user-filter select[name="role"]',
+  );
+  if (roleFilter) roleFilter.value = filters.role || "";
+
+  const statusFilter = root.querySelector(
+    '#admin-user-filter select[name="status"]',
+  );
+  if (statusFilter) statusFilter.value = filters.status || "";
+
   users.forEach((u) => {
     const select = root.querySelector(`[data-role-for="${u.user_id}"]`);
     if (select) select.value = u.role;
   });
+
+  document
+    .getElementById("admin-add-user-form")
+    ?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      try {
+        await api("/admin/users", {
+          method: "POST",
+          body: JSON.stringify(formData(e.currentTarget)),
+        });
+
+        setMessage("User added successfully.", "success");
+        await loadAdminUsers(root, filters);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    });
+
   document
     .getElementById("admin-user-filter")
     ?.addEventListener("submit", (e) => {
       e.preventDefault();
       loadAdminUsers(root, formData(e.currentTarget));
     });
+
   root.querySelectorAll("[data-update-role]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       const role = root.querySelector(
         `[data-role-for="${btn.dataset.updateRole}"]`,
       )?.value;
+
       try {
         await api(`/admin/users/${btn.dataset.updateRole}/role`, {
           method: "PUT",
           body: JSON.stringify({ role }),
         });
+
         setMessage("User role updated.", "success");
+        await loadAdminUsers(root, filters);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   root.querySelectorAll("[data-disable-user]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         await api(`/admin/users/${btn.dataset.disableUser}/disable`, {
           method: "PUT",
         });
+
         setMessage("User disabled.", "success");
+        await loadAdminUsers(root, filters);
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   root.querySelectorAll("[data-enable-user]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         await api(`/admin/users/${btn.dataset.enableUser}/enable`, {
           method: "PUT",
         });
+
         setMessage("User enabled.", "success");
+        await loadAdminUsers(root, filters);
       } catch (error) {
         setMessage(error.message, "error");
       }
@@ -1302,59 +1654,151 @@ async function loadAdminActivities(root) {
     <div class="grid">
       <section class="item">
         <h3>Activity Monitoring</h3>
+        <p class="help">RA-12 to RA-15: Admin can monitor recent activities, review logs, and identify issue records.</p>
+
+        <form id="activity-filter-form" class="form-grid three">
+          <div class="field">
+            <label>Action Type</label>
+            <select name="actionType">
+              <option value="">All</option>
+              <option value="USER_CREATED">USER_CREATED</option>
+              <option value="CLUB_CREATED">CLUB_CREATED</option>
+              <option value="JOIN_REQUEST">JOIN_REQUEST</option>
+              <option value="MEMBERSHIP">MEMBERSHIP</option>
+              <option value="EVENT_CREATED">EVENT_CREATED</option>
+              <option value="EVENT_REGISTRATION">EVENT_REGISTRATION</option>
+              <option value="ANNOUNCEMENT">ANNOUNCEMENT</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Status</label>
+            <input name="status" placeholder="ACTIVE / REJECTED / CANCELLED" />
+          </div>
+
+          <div class="field">
+            <label>Keyword</label>
+            <input name="keyword" placeholder="Name, email, club, event" />
+          </div>
+
+          <div class="field">
+            <label>Date From</label>
+            <input name="dateFrom" type="date" />
+          </div>
+
+          <div class="field">
+            <label>Date To</label>
+            <input name="dateTo" type="date" />
+          </div>
+
+          <div class="field">
+            <label>Limit</label>
+            <input name="limit" type="number" min="1" max="200" value="100" />
+          </div>
+        </form>
+
         <div class="actions">
           <button data-load-activities="recent">Recent Activities</button>
           <button data-load-activities="logs" class="secondary">Activity Logs</button>
-          <button data-load-activities="failed" class="secondary">Failed Activities</button>
+          <button data-load-activities="failed" class="secondary">Issue / Failed Activities</button>
         </div>
+
         <div id="activities-output" class="footer-note"></div>
       </section>
+
       <section class="item">
         <h3>Generate Report</h3>
+        <p class="help">RA-16: Admin can select a report type and generate a system summary.</p>
+
         <form id="report-form" class="form-grid">
-          <div class="field full"><label>Report Type</label><select name="reportType"><option value="club_activity">Club Activity</option><option value="event_participation">Event Participation</option><option value="user_engagement">User Engagement</option><option value="membership_stats">Membership Stats</option></select></div>
-          <div class="field"><label>Status Filter</label><input name="status" placeholder="ACTIVE / PUBLISHED" /></div>
-          <div class="field"><label>Date From</label><input name="dateFrom" type="date" /></div>
-          <div class="field"><label>Date To</label><input name="dateTo" type="date" /></div>
-          <div class="form-actions full"><button type="submit">Generate</button></div>
+          <div class="field full">
+            <label>Report Type</label>
+            <select name="reportType">
+              <option value="club_activity">Club Activity</option>
+              <option value="event_participation">Event Participation</option>
+              <option value="user_engagement">User Engagement</option>
+              <option value="membership_stats">Membership Stats</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Status Filter</label>
+            <input name="status" placeholder="ACTIVE / PUBLISHED / STUDENT" />
+          </div>
+
+          <div class="field">
+            <label>Role Filter</label>
+            <select name="role">
+              <option value="">Any Role</option>
+              <option>STUDENT</option>
+              <option>CLUB_EXECUTIVE</option>
+              <option>ADMIN</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Date From</label>
+            <input name="dateFrom" type="date" />
+          </div>
+
+          <div class="field">
+            <label>Date To</label>
+            <input name="dateTo" type="date" />
+          </div>
+
+          <div class="form-actions full">
+            <button type="submit">Generate Report</button>
+          </div>
         </form>
+
         <div id="report-output" class="footer-note"></div>
       </section>
     </div>
   `;
+
   root.querySelectorAll("[data-load-activities]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       const type = btn.dataset.loadActivities;
+      const filters = formData(document.getElementById("activity-filter-form"));
+
       const path =
         type === "recent"
-          ? "/admin/activities/recent"
+          ? `/admin/activities/recent${queryString(filters)}`
           : type === "logs"
-            ? "/admin/activities/logs"
-            : "/admin/activities/failed";
+            ? `/admin/activities/logs${queryString(filters)}`
+            : `/admin/activities/failed${queryString(filters)}`;
+
       try {
-        document.getElementById("activities-output").innerHTML = renderTable(
-          (await api(path)).data || [],
-        );
+        const rows = (await api(path)).data || [];
+
+        document.getElementById("activities-output").innerHTML = rows.length
+          ? renderTable(rows)
+          : '<div class="empty">No matching activity records found.</div>';
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
   document
     .getElementById("report-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const data = formData(e.currentTarget);
+
       try {
-        document.getElementById("report-output").innerHTML = renderTable(
-          (await api(`/admin/reports/generate${queryString(data)}`)).data || [],
-        );
+        const rows =
+          (await api(`/admin/reports/generate${queryString(data)}`)).data || [];
+
+        document.getElementById("report-output").innerHTML = rows.length
+          ? renderTable(rows)
+          : '<div class="empty">No report data found for the selected filters.</div>';
       } catch (error) {
         setMessage(error.message, "error");
       }
     });
 }
-
 async function loadAdminAllData(root) {
   const data = (await api("/admin/all-data")).data || {};
   const entries = Object.entries(data);
