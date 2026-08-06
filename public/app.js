@@ -460,7 +460,7 @@ function showModal(title, data) {
 
     // If data is a plain object, render as detail grid
     if (data && typeof data === "object") {
-      const sensitive = ["password", "password_hash", "token", "ipAddress"];
+      const sensitive = ["password", "password_hash", "token", "ipAddress", "ip_address"];
       const entries = Object.entries(data)
         .filter(([key]) => !sensitive.includes(key))
         .filter(([key]) => !key.startsWith("_"));
@@ -523,18 +523,52 @@ function renderTable(rows, title = "") {
     return `<div class="notice error">${escapeHtml(rows.error)}</div>`;
   if (!Array.isArray(rows) || rows.length === 0)
     return `<div class="empty">No rows${title ? ` in ${escapeHtml(title)}` : ""}.</div>`;
+
   const keys = Array.from(
     rows.reduce((set, row) => {
       Object.keys(row || {}).forEach((key) => set.add(key));
       return set;
     }, new Set()),
   );
+
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr>${keys.map((key) => `<th>${escapeHtml(key)}</th>`).join("")}</tr></thead>
+        <thead><tr>${keys.map((key) => `<th>${escapeHtml(key.replace(/_/g, ' ').toUpperCase())}</th>`).join("")}</tr></thead>
         <tbody>
-          ${rows.map((row) => `<tr>${keys.map((key) => `<td>${escapeHtml(fmt(row?.[key]))}</td>`).join("")}</tr>`).join("")}
+          ${rows.map((row) => `<tr>
+            ${keys.map((key) => {
+              let value = row?.[key];
+              // ✅ Format JSON details
+              if (key === 'details') {
+                // Try to parse if it's a string
+                let displayValue = value;
+                if (typeof value === 'string') {
+                  try {
+                    displayValue = JSON.parse(value);
+                  } catch (_) {
+                    // If not valid JSON, keep as string
+                    displayValue = value;
+                  }
+                }
+                if (typeof displayValue === 'object') {
+                  return `<td><pre style="margin:0;font-size:0.75rem;background:#f8f9fa;padding:4px 8px;border-radius:4px;max-height:100px;overflow:auto;">${escapeHtml(JSON.stringify(displayValue, null, 2))}</pre></td>`;
+                } else {
+                  return `<td>${escapeHtml(displayValue)}</td>`;
+                }
+              }
+
+              // ✅ Handle arrays
+              if (Array.isArray(value)) {
+                return `<td>${escapeHtml(JSON.stringify(value))}</td>`;
+              }
+              // ✅ Handle dates
+              if (key === 'created_at' || key === 'updated_at' || key === 'joined_at') {
+                return `<td>${escapeHtml(fmt(value))}</td>`;
+              }
+              return `<td>${escapeHtml(fmt(value))}</td>`;
+            }).join("")}
+          </tr>`).join("")}
         </tbody>
       </table>
     </div>
@@ -1071,38 +1105,34 @@ async function loadExecutiveEvents(root) {
       }
     }),
   );
-  root.querySelectorAll("[data-event-regs]").forEach((btn) =>
+  root.querySelectorAll("[data-event-regs]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       try {
         const eventId = btn.dataset.eventRegs;
+
         const response = await api(
-          `/executive/events/${eventId}/registrations`
+          `/executive/events/${eventId}/registrations`,
         );
-      
-        // Handle the data properly
-        let registrations = [];
-        if (Array.isArray(response.data)) {
-          registrations = response.data;
-        } else if (Array.isArray(response)) {
-          registrations = response;
-        } else {
-          registrations = [response.data || response];
-        }
-      
-        // Show modal with registration data and export button
-        if (registrations.length === 0 || (Array.isArray(registrations) && registrations.length === 0)) {
-          showModal("Event Registrations", { 
+
+        const registrations = response.data || [];
+
+        if (registrations.length === 0) {
+          showModal("Event Registrations", {
             message: "No students have registered for this event yet.",
-            eventId: eventId
           });
-        } else {
-          showModalWithExport("Event Registrations", registrations, eventId);
+          return;
         }
+
+        showModalWithExport(
+          "Event Registrations",
+          registrations,
+          eventId,
+        );
       } catch (error) {
         setMessage(error.message, "error");
       }
-    }),
-  );
+    });
+  });
   root
     .querySelector("[data-load-registration-summary]")
     ?.addEventListener("click", async () => {
@@ -1513,48 +1543,19 @@ async function loadAdminActivities(root) {
     <div class="grid">
       <section class="item">
         <h3>Activity Monitoring</h3>
-        <p class="help">RA-12 to RA-15: Admin can monitor recent activities, review logs, and identify issue records.</p>
 
-        <form id="activity-filter-form" class="form-grid three">
-          <div class="field">
-            <label>Action Type</label>
-            <select name="actionType">
-              <option value="">All</option>
-              <option value="USER_CREATED">USER_CREATED</option>
-              <option value="CLUB_CREATED">CLUB_CREATED</option>
-              <option value="JOIN_REQUEST">JOIN_REQUEST</option>
-              <option value="MEMBERSHIP">MEMBERSHIP</option>
-              <option value="EVENT_CREATED">EVENT_CREATED</option>
-              <option value="EVENT_REGISTRATION">EVENT_REGISTRATION</option>
-              <option value="ANNOUNCEMENT">ANNOUNCEMENT</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Status</label>
-            <input name="status" placeholder="ACTIVE / REJECTED / CANCELLED" />
-          </div>
-
-          <div class="field">
-            <label>Keyword</label>
-            <input name="keyword" placeholder="Name, email, club, event" />
-          </div>
-
-          <div class="field">
-            <label>Date From</label>
-            <input name="dateFrom" type="date" />
-          </div>
-
-          <div class="field">
-            <label>Date To</label>
-            <input name="dateTo" type="date" />
-          </div>
-
-          <div class="field">
-            <label>Limit</label>
-            <input name="limit" type="number" min="1" max="200" value="100" />
-          </div>
-        </form>
+        <!-- ✅ ADD SEARCH FILTER + DATE RANGE -->
+        <div class="filter-row" style="display: flex; gap: 10px; margin: 12px 0; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="action-search" placeholder="🔍 Search action..." style="flex: 1; min-width: 150px; padding: 8px 10px;" />
+          <label style="font-size: 13px; display: flex; align-items: center; gap: 4px;">
+            From: <input type="date" id="log-date-from" style="padding: 8px 10px;" />
+          </label>
+          <label style="font-size: 13px; display: flex; align-items: center; gap: 4px;">
+            To: <input type="date" id="log-date-to" style="padding: 8px 10px;" />
+          </label>
+          <button id="apply-log-filter" class="secondary small">Apply Filter</button>
+          <button id="clear-log-filter" class="secondary small">Clear</button>
+        </div>
 
         <div class="actions">
           <button data-load-activities="recent">Recent Activities</button>
@@ -1618,26 +1619,66 @@ async function loadAdminActivities(root) {
   root.querySelectorAll("[data-load-activities]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       const type = btn.dataset.loadActivities;
-      const filters = formData(document.getElementById("activity-filter-form"));
-
-      const path =
+      let path =
         type === "recent"
-          ? `/admin/activities/recent${queryString(filters)}`
+          ? "/admin/activities/recent"
           : type === "logs"
-            ? `/admin/activities/logs${queryString(filters)}`
-            : `/admin/activities/failed${queryString(filters)}`;
+            ? "/admin/activities/logs"
+            : "/admin/activities/failed";
 
+      const actionSearch = document.getElementById("action-search")?.value;
+      if (actionSearch && type !== "recent") {
+        path += `?action=${encodeURIComponent(actionSearch)}`;
+      }
+
+      // ✅ Add date filters if present
+      const dateFrom = document.getElementById("log-date-from")?.value;
+      const dateTo = document.getElementById("log-date-to")?.value;
+
+      if (dateFrom && type !== "recent") {
+        path += `${path.includes('?') ? '&' : '?'}startDate=${encodeURIComponent(dateFrom)}`;
+      }
+      if (dateTo && type !== "recent") {
+        path += `${path.includes('?') ? '&' : '?'}endDate=${encodeURIComponent(dateTo)}`;
+      }
+            
       try {
-        const rows = (await api(path)).data || [];
-
-        document.getElementById("activities-output").innerHTML = rows.length
-          ? renderTable(rows)
-          : '<div class="empty">No matching activity records found.</div>';
+        document.getElementById("activities-output").innerHTML = renderTable(
+          (await api(path)).data || [],
+        );
       } catch (error) {
         setMessage(error.message, "error");
       }
     }),
   );
+
+  // ✅ Apply filter button (combines search + date filters)
+  document.getElementById("apply-log-filter")?.addEventListener("click", () => {
+    const actionSearch = document.getElementById("action-search")?.value.trim();
+    const dateFrom = document.getElementById("log-date-from")?.value;
+    const dateTo = document.getElementById("log-date-to")?.value;
+    
+    // If no filters, show message
+    if (!actionSearch && !dateFrom && !dateTo) {
+      setMessage("Please enter a search term or date range", "error");
+      return;
+    }
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      setMessage("The From date cannot be later than the To date.", "error");
+      return;
+    }
+    
+    document.querySelector('[data-load-activities="logs"]')?.click();
+  });
+
+  // ✅ Clear filter button
+  document.getElementById("clear-log-filter")?.addEventListener("click", () => {
+    document.getElementById("action-search").value = "";
+    document.getElementById("log-date-from").value = "";
+    document.getElementById("log-date-to").value = "";
+    document.querySelector('[data-load-activities="logs"]')?.click();
+  });
 
   document
     .getElementById("report-form")

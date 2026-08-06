@@ -230,22 +230,41 @@ class EventService {
   }
 
   static async getEventRegistrations(executiveId, eventId) {
-    const [event] = await db.query(`
-      SELECT e.* 
+    const [eventRows] = await db.query(
+      `
+      SELECT e.event_id
       FROM events e
-      JOIN clubs c ON e.club_id = c.club_id
-      JOIN club_executives ce ON c.club_id = ce.club_id
-      WHERE e.event_id = ? AND ce.user_id = ?
-    `, [eventId, executiveId]);
-    if (event.length === 0) throw new Error('Event not found or unauthorized');
+      JOIN club_executives ce
+        ON ce.club_id = e.club_id
+      WHERE e.event_id = ?
+        AND ce.user_id = ?
+      LIMIT 1
+    `,
+      [eventId, executiveId],
+    );
 
-    const [rows] = await db.query(`
-      SELECT er.*, u.full_name, u.email
+    if (eventRows.length === 0) {
+      throw new Error("Event not found or unauthorized");
+    }
+
+    const [registrations] = await db.query(
+      `
+      SELECT
+        u.full_name,
+        u.email,
+        er.registration_status,
+        er.registered_at
       FROM event_registrations er
-      JOIN users u ON er.user_id = u.user_id
-      WHERE er.event_id = ? AND er.registration_status = "REGISTERED"
-    `, [eventId]);
-    return rows;
+      JOIN users u
+        ON u.user_id = er.user_id
+      WHERE er.event_id = ?
+        AND er.registration_status = 'REGISTERED'
+      ORDER BY u.full_name ASC
+    `,
+      [eventId],
+    );
+
+    return registrations;
   }
 
   static async getExecutiveEventList(executiveId) {

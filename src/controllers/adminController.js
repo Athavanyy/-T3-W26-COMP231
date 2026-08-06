@@ -140,7 +140,7 @@ class AdminController {
       });
       res.status(200).json({ success: true, data: logs });
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(400).json({ success: false, message: error.message });
     }
   }
   async getFailedActivities(req, res) {

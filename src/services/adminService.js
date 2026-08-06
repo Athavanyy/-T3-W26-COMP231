@@ -147,7 +147,7 @@ class AdminService {
 
   static async getRecentActivities(limit = 100) {
     const [rows] = await db.query(`
-    SELECT al.*, u.full_name, u.email
+    SELECT al.log_id, al.user_id, u.full_name as user_name, al.action, al.details, al.status, al.created_at
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.user_id
     ORDER BY al.created_at DESC
@@ -157,8 +157,23 @@ class AdminService {
   }
 
   static async getActivityLogs(filters = {}) {
+    if (
+      filters.startDate &&
+      filters.endDate &&
+      filters.startDate > filters.endDate
+    ) {
+      throw new Error("Start date cannot be later than end date");
+    }
+    
     let sql = `
-    SELECT al.*, u.full_name, u.email
+    SELECT al.log_id, 
+           al.user_id,
+           u.full_name as user_name,    
+           u.email as user_email,       
+           al.action, 
+           al.details, 
+           al.status, 
+           al.created_at
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.user_id
     WHERE 1=1
@@ -178,11 +193,12 @@ class AdminService {
       params.push(filters.status);
     }
     if (filters.startDate) {
-      sql += ' AND al.created_at >= ?';
-      params.push(filters.startDate);
+      sql += " AND al.created_at >= ?";
+      params.push(`${filters.startDate} 00:00:00`);
     }
+
     if (filters.endDate) {
-      sql += ' AND al.created_at <= ?';
+      sql += " AND al.created_at < DATE_ADD(?, INTERVAL 1 DAY)";
       params.push(filters.endDate);
     }
 
@@ -199,12 +215,15 @@ class AdminService {
     );
   }
 
-  static async getFailedActivities(filters = {}) {
-    return await this.getActivityLogs({
-      ...filters,
-      limit: filters.limit || 100,
-      issueOnly: true,
-    });
+  static async getFailedActivities() {
+    const [rows] = await db.query(`
+    SELECT al.log_id, al.user_id, u.full_name as user_name, al.action, al.details, al.status, al.created_at
+    FROM activity_logs al
+    LEFT JOIN users u ON al.user_id = u.user_id
+    WHERE al.status = 'failure'
+    ORDER BY al.created_at DESC
+  `);
+    return rows;
   }
 
   // REPORT GENERATION
