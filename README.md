@@ -103,3 +103,25 @@ admin@college.ca
 - Executive APIs show data for the club assigned to the executive in `club_executives`.
 - Admin can see all users/clubs/announcements/reports, plus the added All Database Data page.
 - The project does not include `node_modules` or real `.env` secrets.
+
+## Email Notifications
+
+The application supports email notifications for club announcements.
+
+Students who are active members of a club can enable or disable email
+notifications for that club. When a Club Executive publishes an
+announcement, subscribed students receive the announcement by email.
+
+Email delivery is implemented using Nodemailer with SMTP.
+
+### Gmail Configuration
+
+For Gmail SMTP, enable 2-Step Verification on the sending Google account
+and generate a Google App Password.
+
+Add the following variables to your `.env` file:
+
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your_email@gmail.com
+MAIL_PASS=your_gmail_app_password

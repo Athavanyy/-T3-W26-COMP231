@@ -539,23 +539,71 @@ function renderTable(rows, title = "") {
           ${rows.map((row) => `<tr>
             ${keys.map((key) => {
               let value = row?.[key];
-              // ✅ Format JSON details
-              if (key === 'details') {
-                // Try to parse if it's a string
-                let displayValue = value;
-                if (typeof value === 'string') {
+              if (key === "details") {
+                let details = value;
+
+                if (typeof details === "string") {
                   try {
-                    displayValue = JSON.parse(value);
+                    details = JSON.parse(details);
                   } catch (_) {
-                    // If not valid JSON, keep as string
-                    displayValue = value;
+                    return `<td>${escapeHtml(details)}</td>`;
                   }
                 }
-                if (typeof displayValue === 'object') {
-                  return `<td><pre style="margin:0;font-size:0.75rem;background:#f8f9fa;padding:4px 8px;border-radius:4px;max-height:100px;overflow:auto;">${escapeHtml(JSON.stringify(displayValue, null, 2))}</pre></td>`;
-                } else {
-                  return `<td>${escapeHtml(displayValue)}</td>`;
+
+                if (details && typeof details === "object" && !Array.isArray(details)) {
+                  const sensitiveKeys = [
+                    "password",
+                    "password_hash",
+                    "token",
+                    "access_token",
+                    "refresh_token",
+                    "authorization",
+                    "session",
+                    "session_id",
+                    "api_key",
+                    "secret",
+                    "ipAddress",
+                    "ip_address",
+                  ];
+
+                  const readableDetails = Object.entries(details)
+                    .filter(([detailKey]) => {
+                      return !sensitiveKeys.includes(detailKey.toLowerCase());
+                    })
+                    .map(([detailKey, detailValue]) => {
+                      const label = detailKey
+                        .replace(/_/g, " ")
+                        .replace(/([A-Z])/g, " $1")
+                        .trim()
+                        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+                      const displayedValue =
+                        detailValue && typeof detailValue === "object"
+                          ? JSON.stringify(detailValue)
+                          : String(detailValue ?? "—");
+
+                      return `
+                        <div>
+                          <strong>${escapeHtml(label)}:</strong>
+                          ${escapeHtml(displayedValue)}
+                        </div>
+                      `;
+                    })
+                    .join("");
+
+                  return `<td>${readableDetails || "—"}</td>`;
                 }
+
+                return `<td>${escapeHtml(String(details ?? "—"))}</td>`;
+              }
+
+              if (key === "action") {
+                const readableAction = String(value || "")
+                  .replaceAll("_", " ")
+                  .toLowerCase()
+                  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+                return `<td>${escapeHtml(readableAction)}</td>`;
               }
 
               // ✅ Handle arrays
@@ -729,28 +777,131 @@ async function loadStudentEvents(root, filters = {}) {
 }
 
 async function loadStudentAnnouncements(root) {
-  const announcements = (await api("/student/announcements")).data || [];
+  const [announcementResponse, preferenceResponse] =
+    await Promise.all([
+      api("/student/announcements"),
+      api("/student/notification-preferences"),
+    ]);
+
+  const announcements = announcementResponse.data || [];
+  const preferences = preferenceResponse.data || [];
+
   root.innerHTML = `
+    <section class="item">
+      <h3>Email Notification Preferences</h3>
+
+      ${preferences.length
+      ? `
+            <p class="help">
+              Choose which clubs may email you when a new announcement
+              is published.
+            </p>
+
+            <div class="list">
+              ${preferences
+        .map(
+          (preference) => `
+                    <div class="item">
+                      <strong>
+                        ${escapeHtml(preference.club_name)}
+                      </strong>
+
+                      <label class="inline-controls">
+                        <input
+                          type="checkbox"
+                          data-notification-club="${preference.club_id}"
+                          ${Number(preference.email_enabled) === 1
+              ? "checked"
+              : ""}
+                        />
+                        Receive announcement emails
+                      </label>
+                    </div>
+                  `,
+        )
+        .join("")}
+            </div>
+          `
+      : `
+            <div class="empty">
+              Join a club before selecting notification preferences.
+            </div>
+          `
+    }
+    </section>
+
+    <h3>Published Announcements</h3>
+
     ${renderCardList(
       announcements,
       (ann) => `
-      <article class="item">
-        <h3>${escapeHtml(ann.title)}</h3>
-        <div class="meta">${statusBadge(ann.status)} <span class="badge gray">${escapeHtml(ann.club_name || `Club #${ann.club_id}`)}</span></div>
-        <p>${escapeHtml(ann.message)}</p>
-        <p class="help">Created: ${escapeHtml(fmt(ann.created_at))}</p>
-        <div class="actions"><button class="small" data-ann-details="${ann.announcement_id}">Details</button></div>
-      </article>
-    `,
+        <article class="item">
+          <h3>${escapeHtml(ann.title)}</h3>
+
+          <div class="meta">
+            ${statusBadge(ann.status)}
+
+            <span class="badge gray">
+              ${escapeHtml(
+        ann.club_name || `Club #${ann.club_id}`,
+      )}
+            </span>
+          </div>
+
+          <p>${escapeHtml(ann.message)}</p>
+
+          <p class="help">
+            Created: ${escapeHtml(fmt(ann.created_at))}
+          </p>
+
+          <div class="actions">
+            <button
+              class="small"
+              data-ann-details="${ann.announcement_id}"
+            >
+              Details
+            </button>
+          </div>
+        </article>
+      `,
       "No announcements found.",
     )}
   `;
+
+  root
+    .querySelectorAll("[data-notification-club]")
+    .forEach((checkbox) => {
+      checkbox.addEventListener("change", async () => {
+        const clubId = checkbox.dataset.notificationClub;
+        const emailEnabled = checkbox.checked;
+
+        try {
+          const response = await api(
+            `/student/notification-preferences/${clubId}`,
+            {
+              method: "PUT",
+              body: JSON.stringify({ emailEnabled }),
+            },
+          );
+
+          setMessage(response.message, "success");
+        } catch (error) {
+          checkbox.checked = !emailEnabled;
+          setMessage(error.message, "error");
+        }
+      });
+    });
+
   root.querySelectorAll("[data-ann-details]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
         showModal(
           "Announcement Details",
-          (await api(`/student/announcements/${btn.dataset.annDetails}`)).data,
+          (
+            await api(
+              `/student/announcements/${btn.dataset.annDetails}`,
+            )
+          ).data,
         );
       } catch (error) {
         setMessage(error.message, "error");

@@ -85,3 +85,35 @@ CREATE TABLE IF NOT EXISTS announcements (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_ann_club FOREIGN KEY (club_id) REFERENCES clubs(club_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    action VARCHAR(100) NOT NULL,
+    details JSON,
+    ip_address VARCHAR(45),
+    status VARCHAR(20) DEFAULT 'success',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  preference_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  club_id INT NOT NULL,
+  email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_notification_user_club (user_id, club_id),
+
+  CONSTRAINT fk_notification_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(user_id)
+    ON DELETE CASCADE,
+
+  CONSTRAINT fk_notification_club
+    FOREIGN KEY (club_id)
+    REFERENCES clubs(club_id)
+    ON DELETE CASCADE
+);

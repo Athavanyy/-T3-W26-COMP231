@@ -4,6 +4,7 @@ const MembershipService = require('../services/membershipService');
 const AnnouncementService = require('../services/announcementService');
 const AuthService = require('../services/authService');
 const { userValidation } = require('../validators');
+const NotificationService = require('../services/notificationService');
 
 class StudentController {
   async getProfile(req, res) {
@@ -127,6 +128,57 @@ class StudentController {
       res.status(200).json({ success: true, data: ann });
     } catch (error) {
       res.status(404).json({ success: false, message: error.message });
+    }
+  }
+
+  async getNotificationPreferences(req, res) {
+    try {
+      const preferences =
+        await NotificationService.getStudentPreferences(req.user.id);
+
+      res.status(200).json({
+        success: true,
+        data: preferences,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  async updateNotificationPreference(req, res) {
+    try {
+      const { clubId } = req.params;
+      const { emailEnabled } = req.body;
+
+      if (typeof emailEnabled !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "emailEnabled must be true or false",
+        });
+      }
+
+      const preference =
+        await NotificationService.updatePreference(
+          req.user.id,
+          Number(clubId),
+          emailEnabled,
+        );
+
+      res.status(200).json({
+        success: true,
+        message: emailEnabled
+          ? "Email notifications enabled"
+          : "Email notifications disabled",
+        data: preference,
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+      });
     }
   }
 }
