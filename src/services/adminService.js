@@ -87,7 +87,7 @@ class AdminService {
     ) {
       throw new Error("Start date cannot be later than end date");
     }
-    
+
     let sql = `
     SELECT al.log_id, 
            al.user_id,
@@ -143,7 +143,7 @@ class AdminService {
     SELECT al.log_id, al.user_id, u.full_name as user_name, al.action, al.details, al.status, al.created_at
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.user_id
-    WHERE al.status = 'failure'
+    WHERE LOWER(al.status) IN ('failure', 'suspicious')
     ORDER BY al.created_at DESC
   `);
     return rows;

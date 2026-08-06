@@ -19,6 +19,11 @@ router.get('/events', studentController.browseEvents);
 router.get('/events/:eventId', studentController.getEventDetails);
 router.post('/events/register', validate(registrationValidation.registration), studentController.registerForEvent);
 
+
+router.get('/notification-preferences', studentController.getNotificationPreferences,);
+
+router.put("/notification-preferences/:clubId", studentController.updateNotificationPreference,);
+
 router.get('/announcements', studentController.getAnnouncements);
 router.get('/announcements/:announcementId', studentController.getAnnouncementDetails);
 
