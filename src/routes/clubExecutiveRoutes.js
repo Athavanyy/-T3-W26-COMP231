@@ -69,5 +69,7 @@ router.put(
   validate(announcementValidation.announcement),
   clubExecutiveController.updateAnnouncement,
 );
+router.get("/theme", clubExecutiveController.getTheme);
+router.put("/theme", clubExecutiveController.updateTheme);
 
 module.exports = router;

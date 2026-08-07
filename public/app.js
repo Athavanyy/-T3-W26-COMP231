@@ -113,6 +113,9 @@ async function login(email, password) {
     state.token = result.token;
     state.user = result.user;
     localStorage.setItem("ccms_token", state.token);
+
+    await loadSavedTheme();
+
     state.view = defaultViewForRole(state.user.role);
     setMessage(
       `Logged in as ${state.user.full_name || state.user.email}`,
@@ -146,6 +149,9 @@ async function loadMe() {
   try {
     const result = await api("/auth/me");
     state.user = result.user;
+
+    await loadSavedTheme();
+    
     state.view = defaultViewForRole(state.user.role);
     render();
   } catch (error) {
@@ -600,6 +606,7 @@ function renderTable(rows, title = "") {
 }
 
 // ===== THEME MANAGEMENT =====
+
 function getTheme() {
   return localStorage.getItem("ccms_theme") || "light";
 }
@@ -607,22 +614,77 @@ function getTheme() {
 function setTheme(theme) {
   localStorage.setItem("ccms_theme", theme);
   document.documentElement.setAttribute("data-theme", theme);
+
   const toggle = document.getElementById("themeToggle");
+
   if (toggle) {
     toggle.textContent = theme === "dark" ? "☀️" : "🌙";
   }
 }
 
-function toggleTheme() {
-  const current = getTheme();
-  const next = current === "dark" ? "light" : "dark";
-  setTheme(next);
+function getThemeEndpoint() {
+  const role = String(state.user?.role || "").toUpperCase();
+
+  if (role === "ADMIN") {
+    return "/admin/theme";
+  }
+
+  if (role === "CLUB_EXECUTIVE") {
+    return "/executive/theme";
+  }
+
+  return "/student/theme";
 }
 
-// Apply theme on load
+async function loadSavedTheme() {
+  if (!state.user) return;
+
+  try {
+    const response = await api(getThemeEndpoint());
+    const savedTheme = response.data?.theme;
+
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme);
+    }
+  } catch (error) {
+    console.error(
+      "Could not load saved theme:",
+      error.message
+    );
+  }
+}
+
+async function toggleTheme() {
+  const current = getTheme();
+  const next = current === "dark" ? "light" : "dark";
+
+  // Change immediately
+  setTheme(next);
+
+  // If nobody is logged in, just keep the local theme
+  if (!state.user) return;
+
+  try {
+    await api(getThemeEndpoint(), {
+      method: "PUT",
+      body: JSON.stringify({
+        theme: next
+      }),
+    });
+  } catch (error) {
+    // Roll back if database save fails
+    setTheme(current);
+
+    setMessage(
+      "Theme could not be saved: " + error.message,
+      "error"
+    );
+  }
+}
+
+// Apply local theme when page first loads
 document.addEventListener("DOMContentLoaded", () => {
-  const theme = getTheme();
-  setTheme(theme);
+  setTheme(getTheme());
 });
 
 async function loadStudentClubs(root, filters = {}) {
