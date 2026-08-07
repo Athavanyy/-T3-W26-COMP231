@@ -1,6 +1,7 @@
-const AdminService = require("../services/adminService");
-const ClubService = require("../services/clubService");
-const AnnouncementService = require("../services/announcementService");
+const AdminService = require('../services/adminService');
+const ClubService = require('../services/clubService');
+const AnnouncementService = require('../services/announcementService');
+const db = require('../config/database');
 
 class AdminController {
   // Users
@@ -198,6 +199,80 @@ class AdminController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  async getTheme(req, res) {
+    try {
+      const [rows] = await db.query(
+        "SELECT visual_theme FROM users WHERE user_id = ?",
+        [req.user.id]
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: { theme: rows[0].visual_theme }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  async updateTheme(req, res) {
+    try {
+      const { theme } = req.body;
+
+      if (!["light", "dark"].includes(theme)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid theme"
+        });
+      }
+
+      const [result] = await db.query(
+        "UPDATE users SET visual_theme = ? WHERE user_id = ?",
+        [theme, req.user.id]
+      );
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+
+      // Read it back from the database
+      const [rows] = await db.query(
+        "SELECT visual_theme FROM users WHERE user_id = ?",
+        [req.user.id]
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Theme preference saved",
+        data: {
+          visual_theme: rows[0].visual_theme
+        }
+      });
+
+    } catch (error) {
+      console.error("Theme update error:", error);
+
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
 }
 
 module.exports = new AdminController();

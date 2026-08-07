@@ -41,10 +41,10 @@ router.get("/activities/failed", adminController.getFailedActivities);
 
 router.get("/reports/generate", adminController.generateReport);
 
-router.get("/announcements", adminController.getAllAnnouncements);
-router.delete(
-  "/announcements/:announcementId",
-  adminController.removeAnnouncement,
-);
+router.get('/announcements', adminController.getAllAnnouncements);
+router.delete('/announcements/:announcementId', adminController.removeAnnouncement);
+
+router.get("/theme", adminController.getTheme);
+router.put("/theme", adminController.updateTheme);
 
 module.exports = router;

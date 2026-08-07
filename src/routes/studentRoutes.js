@@ -30,4 +30,7 @@ router.put("/notification-preferences/:clubId", studentController.updateNotifica
 router.get('/announcements', studentController.getAnnouncements);
 router.get('/announcements/:announcementId', studentController.getAnnouncementDetails);
 
+router.get("/theme", studentController.getTheme);
+router.put("/theme", studentController.updateTheme);
+
 module.exports = router;
