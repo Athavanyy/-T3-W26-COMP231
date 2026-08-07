@@ -142,6 +142,117 @@ class AdminService {
     return await this.getUserById(userId);
   }
 
+  static async getClubExecutives() {
+    const [rows] = await db.query(`
+    SELECT
+      u.user_id,
+      u.full_name,
+      u.email,
+      ce.club_id
+    FROM users u
+    LEFT JOIN club_executives ce
+      ON ce.user_id = u.user_id
+    WHERE u.role = 'CLUB_EXECUTIVE'
+      AND u.status = 'ACTIVE'
+    ORDER BY u.full_name ASC
+  `);
+
+    return rows;
+  }
+
+  static async assignExecutiveToClub(adminId, clubId, executiveUserId) {
+    const [clubs] = await db.query(
+      `
+      SELECT club_id, club_name
+      FROM clubs
+      WHERE club_id = ?
+    `,
+      [clubId]
+    );
+
+    if (clubs.length === 0) {
+      throw new Error("Club not found");
+    }
+
+    const [users] = await db.query(
+      `
+      SELECT user_id, full_name, role, status
+      FROM users
+      WHERE user_id = ?
+    `,
+      [executiveUserId]
+    );
+
+    if (users.length === 0) {
+      throw new Error("Executive user not found");
+    }
+
+    const executive = users[0];
+
+    if (executive.role !== "CLUB_EXECUTIVE") {
+      throw new Error("Selected user is not a Club Executive");
+    }
+
+    if (executive.status !== "ACTIVE") {
+      throw new Error("Selected Club Executive is not active");
+    }
+
+    // Prevent one executive from being assigned to several clubs.
+    const [currentAssignment] = await db.query(
+      `
+      SELECT ce.club_id, c.club_name
+      FROM club_executives ce
+      JOIN clubs c
+        ON c.club_id = ce.club_id
+      WHERE ce.user_id = ?
+        AND ce.club_id <> ?
+    `,
+      [executiveUserId, clubId]
+    );
+
+    if (currentAssignment.length > 0) {
+      throw new Error(
+        `${executive.full_name} is already assigned to ${currentAssignment[0].club_name}`
+      );
+    }
+
+    // Keep only one executive assigned to this club.
+    await db.query(
+      `
+      DELETE FROM club_executives
+      WHERE club_id = ?
+    `,
+      [clubId]
+    );
+
+    await db.query(
+      `
+      INSERT INTO club_executives (user_id, club_id)
+      VALUES (?, ?)
+    `,
+      [executiveUserId, clubId]
+    );
+
+    await this.logActivity(
+      adminId,
+      "CLUB_EXECUTIVE_ASSIGNED",
+      {
+        clubId: Number(clubId),
+        clubName: clubs[0].club_name,
+        executiveUserId: Number(executiveUserId),
+        executiveName: executive.full_name
+      },
+      "success"
+    );
+
+    return {
+      club_id: Number(clubId),
+      club_name: clubs[0].club_name,
+      executive_user_id: Number(executiveUserId),
+      executive_name: executive.full_name
+    };
+  }
+
   //ACTIVITY MONITORING
   // ===== ACTIVITY LOGGING =====
 

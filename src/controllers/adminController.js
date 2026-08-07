@@ -116,6 +116,53 @@ class AdminController {
     }
   }
 
+  async getClubExecutives(req, res) {
+    try {
+      const executives = await AdminService.getClubExecutives();
+
+      res.status(200).json({
+        success: true,
+        data: executives
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  async assignExecutiveToClub(req, res) {
+    try {
+      const { clubId } = req.params;
+      const { executiveUserId } = req.body;
+
+      if (!executiveUserId) {
+        return res.status(400).json({
+          success: false,
+          message: "Please select a Club Executive"
+        });
+      }
+
+      const result = await AdminService.assignExecutiveToClub(
+        req.user.id,
+        Number(clubId),
+        Number(executiveUserId)
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Club Executive assigned successfully",
+        data: result
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // Activities
   async getRecentActivities(req, res) {
     try {

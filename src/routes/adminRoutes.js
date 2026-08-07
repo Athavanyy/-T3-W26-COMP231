@@ -47,4 +47,7 @@ router.delete('/announcements/:announcementId', adminController.removeAnnounceme
 router.get("/theme", adminController.getTheme);
 router.put("/theme", adminController.updateTheme);
 
+router.get("/club-executives", adminController.getClubExecutives);
+router.put("/clubs/:clubId/executive", adminController.assignExecutiveToClub);
+
 module.exports = router;

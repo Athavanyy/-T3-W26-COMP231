@@ -200,6 +200,24 @@ class EventService {
     if (event.length === 0) throw new Error('Event not found');
     if (event[0].status !== 'PUBLISHED') throw new Error('Event is not open for registration');
 
+    const [membership] = await db.query(
+      `
+    SELECT membership_id
+    FROM memberships
+    WHERE user_id = ?
+      AND club_id = ?
+      AND status = 'ACTIVE'
+    LIMIT 1
+  `,
+      [studentId, event[0].club_id]
+    );
+
+    if (membership.length === 0) {
+      throw new Error(
+        "You must be an active member of this club to register for this event"
+      );
+    }
+
     const [existing] = await db.query(
       'SELECT * FROM event_registrations WHERE event_id = ? AND user_id = ? AND registration_status = "REGISTERED"',
       [eventId, studentId]
