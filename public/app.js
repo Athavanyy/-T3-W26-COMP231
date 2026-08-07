@@ -151,7 +151,7 @@ async function loadMe() {
     state.user = result.user;
 
     await loadSavedTheme();
-    
+
     state.view = defaultViewForRole(state.user.role);
     render();
   } catch (error) {
@@ -1456,7 +1456,13 @@ async function loadAdminUsers(root, filters = {}) {
 }
 
 async function loadAdminClubs(root, filters = {}) {
-  const clubs = (await api(`/admin/clubs${queryString(filters)}`)).data || [];
+  const [clubsResponse, executivesResponse] = await Promise.all([
+    api(`/admin/clubs${queryString(filters)}`),
+    api("/admin/club-executives")
+  ]);
+
+  const clubs = clubsResponse.data || [];
+  const executives = executivesResponse.data || [];
   root.innerHTML = `
     <form id="admin-club-filter" class="form-grid three">
       <div class="field"><label>Keyword</label><input name="keyword" value="${escapeHtml(filters.keyword || "")}" /></div>
@@ -1467,7 +1473,7 @@ async function loadAdminClubs(root, filters = {}) {
       clubs.length
         ? `
       <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Club</th><th>Category</th><th>Status</th><th>Description</th><th>Meeting</th><th>Actions</th></tr></thead>
+        <thead><tr><th>ID</th><th>Club</th><th>Category</th><th>Status</th><th>Description</th><th>Meeting</th><th>Club Executive</th><th>Actions</th></tr></thead>
         <tbody>${clubs
           .map(
             (c) => `
@@ -1478,6 +1484,44 @@ async function loadAdminClubs(root, filters = {}) {
             <td>${statusBadge(c.status)}</td>
             <td>${escapeHtml(c.description)}</td>
             <td>${escapeHtml(c.meeting_details)}</td>
+            <td>
+              <div class="inline-controls">
+                <select data-executive-for-club="${c.club_id}">
+                  <option value="">Unassigned</option>
+
+                  ${executives
+                    .map((exec) => {
+                      const selected =
+                        String(exec.club_id) === String(c.club_id)
+                          ? "selected"
+                          : "";
+
+                      const assignedElsewhere =
+                        exec.club_id &&
+                        String(exec.club_id) !== String(c.club_id);
+
+                      return `
+                        <option
+                          value="${exec.user_id}"
+                          ${selected}
+                          ${assignedElsewhere ? "disabled" : ""}
+                        >
+                          ${escapeHtml(exec.full_name)}
+                          ${assignedElsewhere ? " — Assigned" : ""}
+                        </option>
+                     `;
+                   })
+                   .join("")}
+               </select>
+
+               <button
+                 class="small"
+                data-assign-executive="${c.club_id}"
+              >
+                Assign
+              </button>
+            </div>
+          </td>
             <td>
               <div class="inline-controls">
                 <button class="small success" data-approve-club="${c.club_id}">Approve</button>
@@ -1544,6 +1588,45 @@ async function loadAdminClubs(root, filters = {}) {
       }
     }),
   );
+
+  root.querySelectorAll("[data-assign-executive]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const clubId = btn.dataset.assignExecutive;
+
+      const select = root.querySelector(
+        `[data-executive-for-club="${clubId}"]`
+      );
+
+      const executiveUserId = select?.value;
+
+      if (!executiveUserId) {
+        setMessage(
+          "Please select a Club Executive.",
+          "error"
+        );
+        return;
+      }
+
+      try {
+        const response = await api(
+          `/admin/clubs/${clubId}/executive`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              executiveUserId: Number(executiveUserId)
+            })
+          }
+        );
+
+        setMessage(
+          response.message || "Executive assigned.",
+          "success"
+        );
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    });
+  });
 }
 
 async function loadAdminAnnouncements(root) {
