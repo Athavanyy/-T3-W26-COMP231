@@ -2,8 +2,46 @@ const db = require('../config/database');
 const jwt = require('jsonwebtoken');
 
 class AuthService {
+  static async getUserById(userId) {
+    const [rows] = await db.query('SELECT * FROM users WHERE user_id = ?', [userId]);
+    if (rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const { password_hash, ...userWithoutPassword } = rows[0];
+    return userWithoutPassword;
+  }
+
+  static async updateUserProfile(userId, profileData) {
+    const { fullName, email } = profileData;
+    const updates = [];
+    const values = [];
+
+    if (fullName !== undefined) {
+      updates.push('full_name = ?');
+      values.push(fullName);
+    }
+
+    if (email !== undefined) {
+      updates.push('email = ?');
+      values.push(email);
+    }
+
+    if (updates.length === 0) {
+      throw new Error('No profile changes supplied');
+    }
+
+    values.push(userId);
+    await db.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE user_id = ?`,
+      values
+    );
+
+    return this.getUserById(userId);
+  }
+
   static async register(userData) {
-    const { email, password, fullName, studentId, role } = userData;
+    const { email, password, fullName, role } = userData;
 
     const [existing] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
@@ -11,7 +49,7 @@ class AuthService {
     }
 
     await db.query(
-      `INSERT INTO users (full_name, email, password_hash, role, status) 
+      `INSERT INTO users (full_name, email, password_hash, role, status)
        VALUES (?, ?, ?, ?, 'ACTIVE')`,
       [fullName, email, password, role || 'STUDENT']
     );

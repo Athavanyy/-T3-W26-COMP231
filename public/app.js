@@ -273,6 +273,7 @@ function renderTabs() {
       tabButton("student-clubs", "Browse Clubs"),
       tabButton("student-events", "Browse Events"),
       tabButton("student-announcements", "Announcements"),
+      tabButton("student-profile", "My Profile"),
     ].join("");
   } else if (role === "CLUB_EXECUTIVE") {
     tabs = [
@@ -298,6 +299,7 @@ function renderCurrentViewShell() {
     "student-clubs": "Student: Browse/Search Clubs",
     "student-events": "Student: Browse/Register Events",
     "student-announcements": "Student: Announcements",
+    "student-profile": "Student: My Profile",
     "exec-club": "Club Executive: Club Profile",
     "exec-members": "Club Executive: Members & Join Requests",
     "exec-events": "Club Executive: Event Management",
@@ -365,6 +367,7 @@ async function loadCurrentView() {
     if (state.view === "student-events") return await loadStudentEvents(root);
     if (state.view === "student-announcements")
       return await loadStudentAnnouncements(root);
+    if (state.view === "student-profile") return await loadStudentProfile(root);
     if (state.view === "exec-club") return await loadExecutiveClub(root);
     if (state.view === "exec-members") return await loadExecutiveMembers(root);
     if (state.view === "exec-events") return await loadExecutiveEvents(root);
@@ -689,6 +692,71 @@ async function loadStudentAnnouncements(root) {
       }
     }),
   );
+}
+
+async function loadStudentProfile(root) {
+  try {
+    const response = await api("/auth/me");
+    const user = response.user || {};
+
+    root.innerHTML = `
+      <div class="profile-section">
+        <h3>Student Profile</h3>
+        <div class="detail-grid">
+          <div class="detail-row">
+            <span class="detail-label">Full Name</span>
+            <span class="detail-value">${escapeHtml(user.full_name || "")}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Email</span>
+            <span class="detail-value">${escapeHtml(user.email || "")}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Role</span>
+            <span class="detail-value">${escapeHtml(user.role || "")}</span>
+          </div>
+        </div>
+
+        <form id="student-profile-form" class="form-grid">
+          <div class="field">
+            <label>Full Name</label>
+            <input name="fullName" value="${escapeHtml(user.full_name || "")}" required />
+          </div>
+
+          <div class="field">
+            <label>Email</label>
+            <input name="email" type="email" value="${escapeHtml(user.email || "")}" required />
+          </div>
+
+          <div class="form-actions full">
+            <button type="submit">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.getElementById("student-profile-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = formData(e.currentTarget);
+
+      try {
+        const result = await api("/student/profile", {
+          method: "PUT",
+          body: JSON.stringify({
+            fullName: payload.fullName,
+            email: payload.email,
+          }),
+        });
+
+        setMessage(result.message || "Profile updated successfully.", "success");
+        await loadStudentProfile(root);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    });
+  } catch (error) {
+    root.innerHTML = `<div class="notice error">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 async function loadExecutiveClub(root) {

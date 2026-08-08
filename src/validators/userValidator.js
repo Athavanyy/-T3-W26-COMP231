@@ -5,8 +5,7 @@ const userValidation = {
     email: Joi.string().email().required(),
     password: Joi.string().min(8).required(),
     fullName: Joi.string().min(1).max(100).required(),
-    role: Joi.string().valid('STUDENT', 'CLUB_EXECUTIVE', 'ADMIN').default('STUDENT'),
-    studentId: Joi.string().optional()
+    role: Joi.string().valid('STUDENT', 'CLUB_EXECUTIVE', 'ADMIN').default('STUDENT')
   }),
 
   login: Joi.object({
@@ -15,9 +14,8 @@ const userValidation = {
   }),
 
   updateProfile: Joi.object({
-    fullName: Joi.string().min(1).max(100),
-    studentId: Joi.string(),
-    preferences: Joi.object()
+    fullName: Joi.string().min(1).max(100).required(),
+    email: Joi.string().email().required()
   }),
 
   updateRole: Joi.object({

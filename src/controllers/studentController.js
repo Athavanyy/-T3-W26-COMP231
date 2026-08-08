@@ -2,8 +2,42 @@ const ClubService = require('../services/clubService');
 const EventService = require('../services/eventService');
 const MembershipService = require('../services/membershipService');
 const AnnouncementService = require('../services/announcementService');
+const AuthService = require('../services/authService');
+const { userValidation } = require('../validators');
 
 class StudentController {
+  async getProfile(req, res) {
+    try {
+      const userId = req.user.id || req.user.user_id;
+      const user = await AuthService.getUserById(userId);
+      res.status(200).json({ success: true, data: user });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  async updateProfile(req, res) {
+    try {
+      const { error } = userValidation.updateProfile.validate(req.body);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.details[0].message,
+        });
+      }
+
+      const userId = req.user.id || req.user.user_id;
+      const updatedUser = await AuthService.updateUserProfile(userId, req.body);
+      res.status(200).json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: updatedUser,
+      });
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
   // Clubs
   async browseClubs(req, res) {
     try {

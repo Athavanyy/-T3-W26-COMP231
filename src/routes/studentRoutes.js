@@ -4,10 +4,13 @@ const studentController = require('../controllers/studentController');
 const authenticate = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const validate = require('../middleware/validation');
-const { registrationValidation } = require('../validators');
+const { registrationValidation, userValidation } = require('../validators');
 
 router.use(authenticate);
 router.use(roleCheck('STUDENT'));
+
+router.get('/profile', studentController.getProfile);
+router.put('/profile', validate(userValidation.updateProfile), studentController.updateProfile);
 
 router.get('/clubs', studentController.browseClubs);
 router.get('/clubs/categories', studentController.getClubCategories);
