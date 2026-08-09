@@ -1117,78 +1117,243 @@ async function loadExecutiveMembers(root) {
     api("/executive/members"),
     api("/executive/members/requests"),
   ]);
+
   const members = membersRes.data || [];
   const requests = requestsRes.data || [];
+
   root.innerHTML = `
     <div class="grid">
+
       <section class="item">
         <h3>Active Members</h3>
-        ${members.length ? renderTable(members) : '<div class="empty">No active members.</div>'}
+
+        ${members.length
+      ? `
+          <div class="table-wrap">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>Membership ID</th>
+                  <th>Club</th>
+                  <th>Student</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Joined</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${members
+        .map(
+          (m) => `
+                  <tr>
+                    <td>${escapeHtml(m.membership_id)}</td>
+                    <td>${escapeHtml(m.club_name || "")}</td>
+                    <td>${escapeHtml(m.full_name || "")}</td>
+                    <td>${escapeHtml(m.email || "")}</td>
+                    <td>${statusBadge(m.status)}</td>
+                    <td>${escapeHtml(fmt(m.joined_at))}</td>
+                    <td>
+                      <button
+                        class="small danger"
+                        data-remove-member="${m.membership_id}"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                `,
+        )
+        .join("")}
+              </tbody>
+            </table>
+          </div>
+        `
+      : '<div class="empty">No active members.</div>'
+    }
       </section>
+
       <section class="item">
         <h3>Pending Join Requests</h3>
-        ${
-          requests.length
-            ? `
-          <div class="table-wrap"><table class="compact-table">
-            <thead><tr><th>ID</th><th>Student</th><th>Email</th><th>Date</th><th>Action</th></tr></thead>
-            <tbody>${requests
-              .map(
-                (r) => `
-              <tr>
-                <td>${escapeHtml(r.request_id)}</td>
-                <td>${escapeHtml(r.full_name)}</td>
-                <td>${escapeHtml(r.email)}</td>
-                <td>${escapeHtml(fmt(r.request_date))}</td>
-                <td class="inline-controls">
-                  <button class="small success" data-approve-request="${r.request_id}">Approve</button>
-                  <button class="small danger" data-reject-request="${r.request_id}">Reject</button>
-                </td>
-              </tr>`,
-              )
-              .join("")}
-            </tbody>
-          </table></div>`
-            : '<div class="empty">No pending requests.</div>'
-        }
+
+        ${requests.length
+      ? `
+          <div class="table-wrap">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Club</th>
+                  <th>Student</th>
+                  <th>Email</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${requests
+        .map(
+          (r) => `
+                  <tr>
+                    <td>${escapeHtml(r.request_id)}</td>
+                    <td>${escapeHtml(r.club_name || "")}</td>
+                    <td>${escapeHtml(r.full_name || "")}</td>
+                    <td>${escapeHtml(r.email || "")}</td>
+                    <td>${escapeHtml(fmt(r.request_date))}</td>
+                    <td class="inline-controls">
+                      <button
+                        class="small success"
+                        data-approve-request="${r.request_id}"
+                      >
+                        Approve
+                      </button>
+
+                      <button
+                        class="small danger"
+                        data-reject-request="${r.request_id}"
+                      >
+                        Reject
+                      </button>
+                    </td>
+                  </tr>
+                `,
+        )
+        .join("")}
+              </tbody>
+            </table>
+          </div>
+        `
+      : '<div class="empty">No pending requests.</div>'
+    }
       </section>
+
+      <section class="item">
+        <h3>Membership History</h3>
+
+        <form id="membership-history-filter" class="form-grid three">
+          <div class="field">
+            <label>Date From</label>
+            <input type="date" name="dateFrom" />
+          </div>
+
+          <div class="field">
+            <label>Date To</label>
+            <input type="date" name="dateTo" />
+          </div>
+
+          <div class="field">
+            <label>&nbsp;</label>
+            <button type="submit">View History</button>
+          </div>
+        </form>
+
+        <div id="membership-history-output"></div>
+      </section>
+
     </div>
-    <div class="footer-note">To remove a member, enter the Membership ID from the table.</div>
-    <form id="remove-member-form" class="form-grid three">
-      <div class="field"><label>Membership ID</label><input name="membershipId" type="number" required /></div>
-      <div class="field"><label>&nbsp;</label><button class="danger" type="submit">Remove Member</button></div>
-    </form>
   `;
-  root
-    .querySelectorAll("[data-approve-request]")
-    .forEach((btn) =>
-      btn.addEventListener("click", () =>
-        handleRequestAction("approve", btn.dataset.approveRequest),
-      ),
-    );
-  root
-    .querySelectorAll("[data-reject-request]")
-    .forEach((btn) =>
-      btn.addEventListener("click", () =>
-        handleRequestAction("reject", btn.dataset.rejectRequest),
-      ),
-    );
-  document
-    .getElementById("remove-member-form")
-    ?.addEventListener("submit", async (e) => {
-      e.preventDefault();
+
+  // Approve join request
+  root.querySelectorAll("[data-approve-request]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      try {
+        await api("/executive/members/approve", {
+          method: "PUT",
+          body: JSON.stringify({
+            requestId: Number(btn.dataset.approveRequest),
+          }),
+        });
+
+        setMessage("Join request approved.", "success");
+        await loadExecutiveMembers(root);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    }),
+  );
+
+  // Reject join request
+  root.querySelectorAll("[data-reject-request]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      try {
+        await api("/executive/members/reject", {
+          method: "PUT",
+          body: JSON.stringify({
+            requestId: Number(btn.dataset.rejectRequest),
+          }),
+        });
+
+        setMessage("Join request rejected.", "success");
+        await loadExecutiveMembers(root);
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    }),
+  );
+
+  // Remove active member
+  root.querySelectorAll("[data-remove-member]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const ok = confirm("Remove this member from the club?");
+      if (!ok) return;
+
       try {
         await api("/executive/members/remove", {
           method: "DELETE",
           body: JSON.stringify({
-            membershipId: Number(formData(e.currentTarget).membershipId),
+            membershipId: Number(btn.dataset.removeMember),
           }),
         });
+
         setMessage("Member removed.", "success");
+        await loadExecutiveMembers(root);
       } catch (error) {
         setMessage(error.message, "error");
       }
+    }),
+  );
+
+  // Membership history filter
+  document
+    .getElementById("membership-history-filter")
+    ?.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      loadMembershipHistory(
+        formData(e.currentTarget),
+      );
     });
+}
+
+async function loadMembershipHistory(filters = {}) {
+  const output = document.getElementById("membership-history-output");
+
+  try {
+    const res = await api(
+      `/executive/members/history${queryString(filters)}`
+    );
+
+    const rows = res.data || [];
+
+    const formattedRows = rows.map((row) => ({
+      membership_id: row.membership_id,
+      club: row.club_name,
+      student: row.full_name,
+      email: row.email,
+      status: row.status,
+      joined_at: fmt(row.joined_at),
+    }));
+
+    output.innerHTML = renderTable(
+      formattedRows,
+      "No membership history found."
+    );
+  } catch (error) {
+    output.innerHTML = "";
+    setMessage(error.message, "error");
+  }
 }
 
 async function handleRequestAction(action, requestId) {

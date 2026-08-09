@@ -119,6 +119,27 @@ class ClubExecutiveController {
     }
   }
 
+  async getMembershipHistory(req, res) {
+    try {
+      const { dateFrom, dateTo } = req.query;
+
+      const history = await MembershipService.getMembershipHistory(
+        req.user.user_id,
+        { dateFrom, dateTo }
+      );
+
+      res.status(200).json({
+        success: true,
+        data: history
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   //EVENT MANAGEMENT
   async getMyEvents(req, res) {
     try {

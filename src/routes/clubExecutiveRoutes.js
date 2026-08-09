@@ -25,6 +25,10 @@ router.put(
   clubExecutiveController.updateClubProfile,
 );
 
+router.get(
+  "/members/history",
+  clubExecutiveController.getMembershipHistory
+);
 router.get("/members", clubExecutiveController.getMembers);
 router.get("/members/requests", clubExecutiveController.getPendingRequests);
 router.put("/members/approve", clubExecutiveController.approveJoinRequest);

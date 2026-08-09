@@ -125,17 +125,31 @@ class MembershipService {
   }
 
   static async removeMember(executiveId, membershipId) {
-    const [mem] = await db.query(`
-      SELECT m.* 
+    const [mem] = await db.query(
+      `
+      SELECT 
+        m.*,
+        u.full_name,
+        u.email,
+        c.club_name
       FROM memberships m
+      JOIN users u ON m.user_id = u.user_id
+      JOIN clubs c ON m.club_id = c.club_id
       JOIN club_executives ce ON m.club_id = ce.club_id
-      WHERE m.membership_id = ? AND ce.user_id = ?
-    `, [membershipId, executiveId]);
-    if (mem.length === 0) throw new Error('Membership not found or unauthorized');
+      WHERE m.membership_id = ?
+        AND ce.user_id = ?
+        AND m.status = "ACTIVE"
+    `,
+      [membershipId, executiveId],
+    );
+
+    if (mem.length === 0) {
+      throw new Error("Membership not found, inactive, or unauthorized");
+    }
 
     await db.query(
       'UPDATE memberships SET status = "INACTIVE" WHERE membership_id = ?',
-      [membershipId]
+      [membershipId],
     );
 
     await AdminService.logActivity(executiveId, 'MEMBER_REMOVED', {
@@ -144,19 +158,52 @@ class MembershipService {
       clubId: mem[0].club_id
     });
 
-    const [rows] = await db.query('SELECT * FROM memberships WHERE membership_id = ?', [membershipId]);
-    return rows[0];
+
+    return {
+      ...mem[0],
+      status: "INACTIVE",
+    };
   }
 
-  static async getMembershipHistory(executiveId) {
-    const [rows] = await db.query(`
-      SELECT m.*, u.full_name, u.email
-      FROM memberships m
-      JOIN users u ON m.user_id = u.user_id
-      JOIN club_executives ce ON m.club_id = ce.club_id
-      WHERE ce.user_id = ?
-      ORDER BY m.joined_at DESC
-    `, [executiveId]);
+  static async getMembershipHistory(executiveId, filters = {}) {
+    const { dateFrom, dateTo } = filters;
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      throw new Error("Date From cannot be later than Date To");
+    }
+
+    let sql = `
+    SELECT
+      m.membership_id,
+      m.user_id,
+      m.club_id,
+      m.status,
+      m.joined_at,
+      u.full_name,
+      u.email,
+      c.club_name
+    FROM memberships m
+    JOIN users u ON m.user_id = u.user_id
+    JOIN clubs c ON m.club_id = c.club_id
+    JOIN club_executives ce ON m.club_id = ce.club_id
+    WHERE ce.user_id = ?
+  `;
+
+    const params = [executiveId];
+
+    if (dateFrom) {
+      sql += ` AND m.joined_at >= ?`;
+      params.push(`${dateFrom} 00:00:00`);
+    }
+
+    if (dateTo) {
+      sql += ` AND m.joined_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+      params.push(dateTo);
+    }
+
+    sql += ` ORDER BY m.joined_at DESC`;
+
+    const [rows] = await db.query(sql, params);
     return rows;
   }
 }
