@@ -118,3 +118,22 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     REFERENCES clubs(club_id)
     ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS club_favourites (
+  favourite_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  club_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_user_club_favourite (user_id, club_id),
+
+  CONSTRAINT fk_favourite_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(user_id)
+    ON DELETE CASCADE,
+
+  CONSTRAINT fk_favourite_club
+    FOREIGN KEY (club_id)
+    REFERENCES clubs(club_id)
+    ON DELETE CASCADE
+);
