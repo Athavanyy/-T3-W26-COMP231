@@ -70,6 +70,53 @@ class StudentController {
     }
   }
 
+  async saveFavouriteClub(req, res) {
+    try {
+      const { clubId } = req.body;
+
+      if (!clubId) {
+        return res.status(400).json({
+          success: false,
+          message: "Club ID is required"
+        });
+      }
+
+      const favourite = await ClubService.saveFavouriteClub(
+        req.user.id,
+        Number(clubId)
+      );
+
+      res.status(201).json({
+        success: true,
+        message: "Club saved as favourite",
+        data: favourite
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  async getFavouriteClubs(req, res) {
+    try {
+      const favourites = await ClubService.getFavouriteClubs(req.user.id);
+
+      res.status(200).json({
+        success: true,
+        data: favourites
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+
+
   // Membership
   async submitJoinRequest(req, res) {
     try {

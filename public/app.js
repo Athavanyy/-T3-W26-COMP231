@@ -736,6 +736,7 @@ async function loadStudentClubs(root, filters = {}) {
         <div class="actions">
           <button class="small" data-student-club-details="${club.club_id}">Details</button>
           <button class="small success" data-join-club="${club.club_id}">Submit Join Request</button>
+          <button class="small" data-favourite-club="${club.club_id}">Save Favourite</button>
         </div>
       </article>
     `,
@@ -772,6 +773,26 @@ async function loadStudentClubs(root, filters = {}) {
         setMessage(error.message, "error");
       }
     }),
+  );
+
+  root.querySelectorAll("[data-favourite-club]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      try {
+        const res = await api("/student/clubs/favourites", {
+          method: "POST",
+          body: JSON.stringify({
+            clubId: Number(btn.dataset.favouriteClub)
+          })
+        });
+
+        setMessage(
+          res.message || "Club saved as favourite.",
+          "success"
+        );
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    })
   );
 }
 
@@ -1042,7 +1063,6 @@ async function loadExecutiveClub(root) {
   const clubs = Array.isArray(response.data) ? response.data : [response.data];
 
   root.innerHTML = `
-    <p class="help">Showing all clubs assigned to this executive.</p>
 
     ${clubs
       .map(
@@ -1623,7 +1643,6 @@ async function loadAdminUsers(root, filters = {}) {
   root.innerHTML = `
     <section class="item">
       <h3>Add User</h3>
-      <p class="help">RA-04: Administrator can create a new user account and assign a role.</p>
       <form id="admin-add-user-form" class="form-grid">
         <div class="field">
           <label>Full Name</label>
@@ -2021,7 +2040,7 @@ async function loadAdminActivities(root) {
         <div class="actions">
           <button data-load-activities="recent">Recent Activities</button>
           <button data-load-activities="logs" class="secondary">Activity Logs</button>
-          <button data-load-activities="failed" class="secondary">Issue / Failed Activities</button>
+          <button data-load-activities="failed" class="secondary">Failed Activities</button>
         </div>
 
         <div id="activities-output" class="footer-note"></div>
@@ -2029,7 +2048,6 @@ async function loadAdminActivities(root) {
 
       <section class="item">
         <h3>Generate Report</h3>
-        <p class="help">RA-16: Admin can select a report type and generate a system summary.</p>
 
         <form id="report-form" class="form-grid">
           <div class="field full">

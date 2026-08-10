@@ -40,6 +40,60 @@ class ClubService {
     return rows.map((r) => r.category);
   }
 
+  static async saveFavouriteClub(userId, clubId) {
+    const [club] = await db.query(
+      `SELECT club_id, club_name
+     FROM clubs
+     WHERE club_id = ? AND status = "ACTIVE"`,
+      [clubId]
+    );
+
+    if (club.length === 0) {
+      throw new Error("Club not found or inactive");
+    }
+
+    const [existing] = await db.query(
+      `SELECT favourite_id
+     FROM club_favourites
+     WHERE user_id = ? AND club_id = ?`,
+      [userId, clubId]
+    );
+
+    if (existing.length > 0) {
+      throw new Error("Club is already saved as a favourite");
+    }
+
+    await db.query(
+      `INSERT INTO club_favourites (user_id, club_id)
+     VALUES (?, ?)`,
+      [userId, clubId]
+    );
+
+    return {
+      club_id: club[0].club_id,
+      club_name: club[0].club_name
+    };
+  }
+
+  static async getFavouriteClubs(userId) {
+    const [rows] = await db.query(
+      `
+      SELECT
+        cf.favourite_id,
+        cf.created_at AS favourited_at,
+        c.*
+      FROM club_favourites cf
+      JOIN clubs c ON cf.club_id = c.club_id
+      WHERE cf.user_id = ?
+      ORDER BY cf.created_at DESC
+    `,
+      [userId]
+    );
+
+    return rows;
+  }
+
+
   static async getMyClubs(executiveId) {
     const [rows] = await db.query(
       `

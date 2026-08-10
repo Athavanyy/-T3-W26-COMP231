@@ -16,6 +16,9 @@ router.get('/clubs', studentController.browseClubs);
 router.get('/clubs/categories', studentController.getClubCategories);
 router.get('/clubs/:clubId', studentController.getClubDetails);
 
+router.get('/clubs/favourites', studentController.getFavouriteClubs);
+router.post('/clubs/favourites', studentController.saveFavouriteClub);
+
 router.post('/membership/join', validate(registrationValidation.joinRequest), studentController.submitJoinRequest);
 
 router.get('/events', studentController.browseEvents);
