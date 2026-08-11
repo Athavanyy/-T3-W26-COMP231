@@ -214,6 +214,35 @@ class AdminController {
       res.status(400).json({ success: false, message: error.message });
     }
   }
+  async exportReport(req, res) {
+    try {
+      const { reportType, ...filters } = req.query;
+
+      if (!reportType) {
+        return res.status(400).json({
+          success: false,
+          message: "Report type required",
+        });
+      }
+
+      const exported = await AdminService.exportReport(
+        reportType,
+        filters,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Report exported successfully",
+        data: exported,
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
 
   // Announcements (Admin)
   async getAllAnnouncements(req, res) {

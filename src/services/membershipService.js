@@ -4,42 +4,65 @@ const AdminService = require('./adminService');
 
 class MembershipService {
   static async submitJoinRequest(studentId, clubId) {
-    const [club] = await db.query('SELECT * FROM clubs WHERE club_id = ? AND status = "ACTIVE"', [clubId]);
-    if (club.length === 0) throw new Error('Club not found or not active');
-
-    const [existing] = await db.query(
-      `SELECT * FROM join_requests 
-       WHERE user_id = ? AND club_id = ? AND request_status IN ("PENDING", "APPROVED")`,
-      [studentId, clubId]
+    const [club] = await db.query(
+      'SELECT * FROM clubs WHERE club_id = ? AND status = "ACTIVE"',
+      [clubId]
     );
-    if (existing.length > 0) {
-      if (existing[0].request_status === 'PENDING') {
-        throw new Error('You already have a pending join request');
-      }
-      if (existing[0].request_status === 'APPROVED') {
-        throw new Error('You are already a member of this club');
-      }
+
+    if (club.length === 0) {
+      throw new Error('Club not found or not active');
     }
 
+    // Current ACTIVE membership is the source of truth
     const [member] = await db.query(
-      'SELECT * FROM memberships WHERE user_id = ? AND club_id = ? AND status = "ACTIVE"',
+      `SELECT membership_id
+     FROM memberships
+     WHERE user_id = ?
+       AND club_id = ?
+       AND status = "ACTIVE"
+     LIMIT 1`,
       [studentId, clubId]
     );
-    if (member.length > 0) throw new Error('You are already a member of this club');
+
+    if (member.length > 0) {
+      throw new Error('You are already a member of this club');
+    }
+
+    // Only a currently PENDING request should block another request
+    const [pending] = await db.query(
+      `SELECT request_id
+     FROM join_requests
+     WHERE user_id = ?
+       AND club_id = ?
+       AND request_status = "PENDING"
+     LIMIT 1`,
+      [studentId, clubId]
+    );
+
+    if (pending.length > 0) {
+      throw new Error('You already have a pending join request');
+    }
 
     await db.query(
-      'INSERT INTO join_requests (user_id, club_id, request_status) VALUES (?, ?, "PENDING")',
+      `INSERT INTO join_requests
+       (user_id, club_id, request_status)
+     VALUES (?, ?, "PENDING")`,
       [studentId, clubId]
     );
+
     const [rows] = await db.query(
-      'SELECT * FROM join_requests WHERE user_id = ? AND club_id = ? AND request_status = "PENDING"',
-      [studentId, clubId]
+      `SELECT *
+     FROM join_requests
+     WHERE request_id = LAST_INSERT_ID()`
     );
 
     await AdminService.logActivity(
       studentId,
       'JOIN_REQUEST_SUBMITTED',
-      { clubId: clubId, clubName: club[0].club_name },
+      {
+        clubId: clubId,
+        clubName: club[0].club_name
+      },
       'success'
     );
 

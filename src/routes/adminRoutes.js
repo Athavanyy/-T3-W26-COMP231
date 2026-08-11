@@ -40,6 +40,7 @@ router.get("/activities/logs", adminController.getActivityLogs);
 router.get("/activities/failed", adminController.getFailedActivities);
 
 router.get("/reports/generate", adminController.generateReport);
+router.get("/reports/export", adminController.exportReport);
 
 router.get('/announcements', adminController.getAllAnnouncements);
 router.delete('/announcements/:announcementId', adminController.removeAnnouncement);

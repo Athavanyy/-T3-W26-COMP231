@@ -296,8 +296,13 @@ class AdminService {
       params.push(filters.userId);
     }
     if (filters.action) {
-      sql += ' AND al.action LIKE ?';
-      params.push(`%${filters.action}%`);
+      const actionSearch = String(filters.action).trim().toLowerCase();
+
+      sql += `
+    AND LOWER(REPLACE(al.action, '_', ' ')) LIKE ?
+  `;
+
+      params.push(`%${actionSearch}%`);
     }
     if (filters.status) {
       sql += ' AND al.status = ?';
@@ -490,6 +495,64 @@ class AdminService {
     `);
 
     return rows;
+  }
+
+  static csvEscape(value) {
+    if (value === null || value === undefined) return "";
+
+    let text = "";
+
+    if (value instanceof Date) {
+      text = value.toISOString();
+    } else if (typeof value === "object") {
+      text = JSON.stringify(value);
+    } else {
+      text = String(value);
+    }
+
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+
+  static rowsToCsv(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return "";
+    }
+
+    const columns = Array.from(
+      new Set(rows.flatMap((row) => Object.keys(row || {}))),
+    );
+
+    const header = columns
+      .map((column) => this.csvEscape(column))
+      .join(",");
+
+    const body = rows
+      .map((row) =>
+        columns
+          .map((column) => this.csvEscape(row[column]))
+          .join(","),
+      )
+      .join("\n");
+
+    return `${header}\n${body}`;
+  }
+
+  static async exportReport(reportType, filters = {}) {
+    const rows = await this.generateReport(reportType, filters);
+    const csv = this.rowsToCsv(rows);
+
+    const cleanReportType = String(reportType || "report")
+      .replace(/[^a-z0-9_-]/gi, "_")
+      .toLowerCase();
+
+    const date = new Date().toISOString().slice(0, 10);
+
+    return {
+      filename: `${cleanReportType}_${date}.csv`,
+      rowCount: Array.isArray(rows) ? rows.length : 0,
+      csv,
+      rows,
+    };
   }
 
   static async safeTableQuery(sql) {

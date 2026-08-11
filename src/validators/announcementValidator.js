@@ -2,8 +2,8 @@ const Joi = require('joi');
 
 const announcementValidation = {
   announcement: Joi.object({
-    title: Joi.string().min(3).max(100).required(),
-    message: Joi.string().min(10).max(5000).required()
+    title: Joi.string().trim().min(1).max(100).required(),
+    message: Joi.string().trim().min(1).max(5000).required()
   }),
 
   updateStatus: Joi.object({

@@ -22,14 +22,44 @@ function escapeHtml(value) {
 }
 
 function fmt(value) {
-  if (value === null || value === undefined || value === "") return "—";
-  if (value instanceof Date) return value.toLocaleString();
-  if (typeof value === "object") return JSON.stringify(value);
-  const text = String(value);
-  if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
-    const d = new Date(text);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleString();
+  if (value === null || value === undefined || value === "") {
+    return "—";
   }
+
+  // mysql2 may return TIMESTAMP/DATETIME columns as Date objects
+  if (value instanceof Date) {
+    return value.toLocaleString("en-CA", {
+      timeZone: "America/Toronto",
+    });
+  }
+
+  // Don't attempt to convert objects, IDs, counts, etc. to dates
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  // Numbers must remain numbers
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  const text = String(value);
+
+  // Only parse strings that clearly look like database/ISO dates
+  const looksLikeDate =
+    /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}/.test(text);
+
+  if (looksLikeDate) {
+    const d = new Date(text);
+
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleString("en-CA", {
+        timeZone: "America/Toronto",
+      });
+    }
+  }
+
+  // Everything else stays exactly as it is
   return text;
 }
 
@@ -60,6 +90,25 @@ function setMessage(text, type = "success") {
   state.message = text || "";
   state.messageType = type;
   render();
+}
+
+function downloadTextFile(
+  filename,
+  content,
+  mimeType = "text/csv;charset=utf-8;",
+) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
 }
 
 async function api(path, options = {}) {
@@ -1413,7 +1462,7 @@ async function loadExecutiveEvents(root) {
       </section>
       <section class="item">
         <h3>Edit Selected Event</h3>
-        ${selected ? `<p class="help">Editing Event #${escapeHtml(selected.event_id)}: ${escapeHtml(selected.title)}</p>${eventFormHtml("edit", selected)}` : '<div class="empty">Click “Edit” on an event below.</div>'}
+        ${selected ? eventFormHtml("edit", selected) : '<div class="empty">Click “Edit” on an event below.</div>'}
       </section>
     </div>
     <h3>My Club Events</h3>
@@ -1565,7 +1614,7 @@ async function loadExecutiveAnnouncements(root) {
       </section>
       <section class="item">
         <h3>Edit Selected Announcement</h3>
-        ${selected ? `<p class="help">Editing Announcement #${escapeHtml(selected.announcement_id)}</p>${announcementFormHtml("edit", selected)}` : '<div class="empty">Click “Edit” on an announcement below.</div>'}
+        ${selected ? announcementFormHtml("edit", selected) : '<div class="empty">Click “Edit” on an announcement below.</div>'}
       </section>
     </div>
     <h3>My Announcements</h3>
@@ -1926,6 +1975,15 @@ async function loadAdminClubs(root, filters = {}) {
   );
   root.querySelectorAll("[data-remove-club]").forEach((btn) =>
     btn.addEventListener("click", async () => {
+
+      const confirmed = confirm(
+        "Are you sure you want to remove this club?"
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
       try {
         await api(`/admin/clubs/${btn.dataset.removeClub}`, {
           method: "DELETE",
@@ -1977,45 +2035,170 @@ async function loadAdminClubs(root, filters = {}) {
   });
 }
 
-async function loadAdminAnnouncements(root) {
-  const announcements = (await api("/admin/announcements")).data || [];
+async function loadAdminAnnouncements(root, filters = {}) {
+  const announcements =
+    (await api("/admin/announcements")).data || [];
+
+  const keyword = String(filters.keyword || "").toLowerCase();
+  const selectedStatus = String(filters.status || "").toUpperCase();
+
+  const filteredAnnouncements = announcements.filter((a) => {
+    const matchesStatus =
+      !selectedStatus ||
+      String(a.status || "").toUpperCase() === selectedStatus;
+
+    const searchableText = [
+      a.club_name,
+      a.title,
+      a.message,
+      a.status,
+      a.created_at,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    const matchesKeyword =
+      !keyword || searchableText.includes(keyword);
+
+    return matchesStatus && matchesKeyword;
+  });
+
   root.innerHTML = `
-    ${
-      announcements.length
-        ? `
-      <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Club</th><th>Title</th><th>Message</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
-        <tbody>${announcements
-          .map(
-            (a) => `
-          <tr>
-            <td>${escapeHtml(a.announcement_id)}</td>
-            <td>${escapeHtml(a.club_name || a.club_id)}</td>
-            <td>${escapeHtml(a.title)}</td>
-            <td>${escapeHtml(a.message)}</td>
-            <td>${statusBadge(a.status)}</td>
-            <td>${escapeHtml(fmt(a.created_at))}</td>
-            <td><button class="small danger" data-remove-announcement="${a.announcement_id}">Remove</button></td>
-          </tr>`,
-          )
-          .join("")}
-        </tbody>
-      </table></div>`
-        : '<div class="empty">No announcements found.</div>'
+    <section class="item">
+      <h3>Announcement Moderation</h3>
+
+      <form id="announcement-filter-form" class="form-grid three">
+        <div class="field">
+          <label>Keyword</label>
+          <input
+            name="keyword"
+            value="${escapeHtml(filters.keyword || "")}"
+            placeholder="Search title, message, club"
+          />
+        </div>
+
+        <div class="field">
+          <label>Status</label>
+          <select name="status">
+            <option value="">All</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="PUBLISHED">PUBLISHED</option>
+            <option value="REMOVED">REMOVED</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>&nbsp;</label>
+          <button type="submit">Filter</button>
+        </div>
+      </form>
+    </section>
+
+    ${filteredAnnouncements.length
+      ? `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Club</th>
+                <th>Title</th>
+                <th>Message</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${filteredAnnouncements
+        .map(
+          (a) => `
+                    <tr>
+                      <td>${escapeHtml(a.announcement_id)}</td>
+                      <td>${escapeHtml(a.club_name || a.club_id)}</td>
+                      <td>${escapeHtml(a.title)}</td>
+                      <td>${escapeHtml(a.message)}</td>
+                      <td>${statusBadge(a.status)}</td>
+                      <td>${escapeHtml(fmt(a.created_at))}</td>
+                      <td>
+                        ${String(a.status || "").toUpperCase() ===
+              "REMOVED"
+              ? '<span class="badge red">Removed</span>'
+              : `
+                              <button
+                                class="small danger"
+                                data-remove-announcement="${a.announcement_id}"
+                              >
+                                Remove
+                              </button>
+                            `
+            }
+                      </td>
+                    </tr>
+                  `,
+        )
+        .join("")}
+            </tbody>
+          </table>
+        </div>
+      `
+      : '<div class="empty">No announcements found.</div>'
     }
   `;
-  root.querySelectorAll("[data-remove-announcement]").forEach((btn) =>
-    btn.addEventListener("click", async () => {
-      try {
-        await api(`/admin/announcements/${btn.dataset.removeAnnouncement}`, {
-          method: "DELETE",
-        });
-        setMessage("Announcement removed.", "success");
-      } catch (error) {
-        setMessage(error.message, "error");
-      }
-    }),
+
+  // Preserve selected status after filtering
+  const statusSelect = root.querySelector(
+    '#announcement-filter-form select[name="status"]',
   );
+
+  if (statusSelect) {
+    statusSelect.value = filters.status || "";
+  }
+
+  // Filter announcements
+  document
+    .getElementById("announcement-filter-form")
+    ?.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      loadAdminAnnouncements(
+        root,
+        formData(e.currentTarget),
+      );
+    });
+
+  // Remove announcement
+  root
+    .querySelectorAll("[data-remove-announcement]")
+    .forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        const ok = confirm(
+          "Remove this announcement from visible listings?",
+        );
+
+        if (!ok) return;
+
+        try {
+          await api(
+            `/admin/announcements/${btn.dataset.removeAnnouncement}`,
+            {
+              method: "DELETE",
+            },
+          );
+
+          setMessage(
+            "Announcement removed.",
+            "success",
+          );
+
+          // Refresh while preserving current filters
+          await loadAdminAnnouncements(root, filters);
+        } catch (error) {
+          setMessage(error.message, "error");
+        }
+      }),
+    );
 }
 
 async function loadAdminActivities(root) {
@@ -2087,6 +2270,7 @@ async function loadAdminActivities(root) {
 
           <div class="form-actions full">
             <button type="submit">Generate Report</button>
+            <button type="button" id="export-report-button" class="secondary">Export CSV</button>
           </div>
         </form>
 
@@ -2173,6 +2357,27 @@ async function loadAdminActivities(root) {
         document.getElementById("report-output").innerHTML = rows.length
           ? renderTable(rows)
           : '<div class="empty">No report data found for the selected filters.</div>';
+      } catch (error) {
+        setMessage(error.message, "error");
+      }
+    });
+
+  document
+    .getElementById("export-report-button")
+    ?.addEventListener("click", async () => {
+      const data = formData(document.getElementById("report-form"));
+
+      try {
+        const result = (await api(`/admin/reports/export${queryString(data)}`))
+          .data;
+
+        if (!result || !result.csv) {
+          setMessage("No report data found to export.", "error");
+          return;
+        }
+
+        downloadTextFile(result.filename || "report.csv", result.csv);
+        setMessage("Report CSV exported.", "success");
       } catch (error) {
         setMessage(error.message, "error");
       }
